@@ -47,6 +47,7 @@
 
 | 項目 | 狀態 | 驗證 |
 |---|---|---|
+| 選單曲 BGM-MENU：首頁首次點擊後播放，地圖選擇沿用不中斷，進入地圖切換地圖曲，返回選圖恢復選單曲 | ✅ | tests/spec.test.mjs（長度、與地圖曲不重複）；瀏覽器實測狀態轉換 |
 | PWA：manifest、Service Worker 離線快取、安裝按鈕 | ✅ | tests/pwa.test.mjs（預先快取涵蓋全部模組、圖示檔存在） |
 | 圖標：SVG、PNG 192／512、maskable、apple-touch、favicon.ico | ✅ | `node tools/build-icons.mjs` |
 | OG／Twitter 分享標籤與 1200×630 分享圖 | ✅ | index.html；icons/og-image.png |
