@@ -1,6 +1,6 @@
 // Service Worker：預先快取全部遊戲檔案，支援離線遊玩（PWA）。
 // VERSION 與 PRECACHE 由 npm run assets:hash 產生；JS/CSS 查詢參數不可忽略。
-const VERSION = 'sb-7cf2243964d50195';
+const VERSION = 'sb-8d593be99631125e';
 const PRECACHE = [
   './',
   'index.html',
@@ -12,23 +12,23 @@ const PRECACHE = [
   'icons/icon-maskable-192.png',
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
-  'styles.css?44957a1e9e91a785',
-  'src/audio/audio.js?c90718ccd3b9129d',
+  'styles.css?e5670946352e6115',
+  'src/audio/audio.js?8af86df7ebdca122',
   'src/boot.js?17bcade6968f5340',
-  'src/core/game.js?bdab6a5eae911cc7',
+  'src/core/game.js?eb0e2f6ac6977042',
   'src/core/mapgeom.js?d314a0e4ca3593db',
   'src/core/waves.js?d91de24bffb00a7a',
   'src/data/difficulty.js?0c3f404f3b8b9498',
   'src/data/enemies.js?7c995a74b462cbf0',
   'src/data/maps.js?8741a0d292d63389',
   'src/data/music.js?4f037bad87845156',
-  'src/data/towers.js?08c3fa50f583831c',
+  'src/data/towers.js?9f11305978ef032f',
   'src/data/waves.js?cab60c4a7a6d3e19',
   'src/main.js?753a0b6972c4c2cb',
   'src/pwa.js?3ca191bc0b2fed9b',
-  'src/render/scene.js?3be186f475aadcfd',
+  'src/render/scene.js?dd99343cf330a23c',
   'src/render/sprites.js?79442e4afc58ad74',
-  'src/ui/app.js?b1ef2cf6119825c9',
+  'src/ui/app.js?0326b54bad4dd417',
   'src/ui/sharecard.js?2fce8658a64b4668',
 ];
 

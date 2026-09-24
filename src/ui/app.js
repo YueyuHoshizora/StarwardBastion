@@ -51,6 +51,7 @@ export class App {
     this.scene = new Scene($('#battle'));
     this.placing = null;
     this.selected = null;
+    this.moving = null; // 移動中的已建造塔（V 鍵或按鈕拿起，左鍵放下）
     this.hover = null;
     this.hoverEnemy = null;
     this.hoverRoute = null;
@@ -161,6 +162,8 @@ export class App {
     $('#btn-wave').addEventListener('click', () => this.startWave());
     $('#info').addEventListener('click', (e) => {
       if (e.target.closest('#btn-upgrade')) this.upgradeSelected();
+      else if (e.target.closest('#btn-move')) this.toggleMove();
+      else if (e.target.closest('#btn-sell')) this.sellSelected();
     });
     $('#btn-maps').addEventListener('click', () => this.backToMaps());
     for (const b of document.querySelectorAll('[data-speed]')) {
@@ -210,6 +213,7 @@ export class App {
     this.clock = new SimClock();
     this.placing = null;
     this.selected = null;
+    this.moving = null;
     this.hoverEnemy = null;
     $('#result').hidden = true;
     $('#result-error').hidden = true;
@@ -318,6 +322,7 @@ export class App {
 
   selectTower(id) {
     this.placing = id;
+    this.moving = null;
     if (id) this.selected = null;
     for (const b of document.querySelectorAll('.tower-btn')) b.classList.toggle('selected', b.dataset.tower === id);
     this.renderInfo();
@@ -363,6 +368,19 @@ export class App {
   onClick(e) {
     if (!this.game) return;
     const [wx, wy] = this.scene.toWorld(e.clientX, e.clientY);
+    if (this.moving) {
+      const [tx, ty] = placementCell(wx, wy);
+      const r = this.game.relocate(this.moving, tx, ty);
+      if (r.ok) {
+        this.moving = null;
+        this.renderInfo();
+      } else {
+        this.audio.sfx('deny');
+        this.flash(r.reason === 'funds' ? '資源不足' : r.reason === 'ended' ? '對局已結束' : '無法移到此處');
+      }
+      this.updateHud();
+      return;
+    }
     if (this.placing) {
       const [tx, ty] = placementCell(wx, wy);
       const r = this.game.build(this.placing, tx, ty);
@@ -392,6 +410,29 @@ export class App {
     this.updateHud();
   }
 
+  /** 拿起／放回目前選取的已建造塔（按鈕或 V 鍵）；拿起後左鍵選擇新位置。 */
+  toggleMove() {
+    if (!this.game || !this.selected || this.game.result) return;
+    this.moving = this.moving ? null : this.selected;
+    this.renderInfo();
+  }
+
+  /** 出售目前選取的已建造塔（按鈕或 S 鍵），退還累計投資的固定比例。 */
+  sellSelected() {
+    if (!this.game || !this.selected) return;
+    const r = this.game.sell(this.selected);
+    if (!r.ok) {
+      this.audio.sfx('deny');
+      this.flash('對局已結束');
+      return;
+    }
+    this.flash(`已出售，退還 ${r.refund} CR`);
+    this.selected = null;
+    this.moving = null;
+    this.renderInfo();
+    this.updateHud();
+  }
+
   onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
@@ -415,6 +456,10 @@ export class App {
       this.cycleSpeed();
     } else if (k === 'u' || k === 'U') {
       this.upgradeSelected();
+    } else if (k === 'v' || k === 'V') {
+      this.toggleMove();
+    } else if (k === 's' || k === 'S') {
+      this.sellSelected();
     }
   }
 
@@ -481,17 +526,22 @@ export class App {
     if (t && this.placing) {
       info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">選取中</span></h3>${dl(towerDetails(t))}` +
         '<p class="hint">左鍵放置（2×2 格）・Shift＋左鍵連續放置・Esc／右鍵取消</p>';
+    } else if (t && this.moving) {
+      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">移動中・Lv${this.moving.level}</span></h3>${dl(builtDetails(this.moving))}` +
+        `<p class="hint">左鍵選擇新位置（移動費 ${this.game.relocateCost(this.moving)} CR；保留等級，移動後立即可攻擊）・V／Esc／右鍵取消</p>`;
     } else if (t) {
       const tw = this.selected;
       const cost = tw.def.upgradeCost;
       info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">已建造・Lv${tw.level}</span></h3>${dl(builtDetails(tw))}` +
-        (cost == null ? '<p class="hint">已達最高等級・塔不可出售</p>'
-          : `<button id="btn-upgrade" class="upgrade-btn" type="button">升級至 Lv${tw.level + 1}（${cost} CR）<kbd>U</kbd></button><p class="hint">塔不可出售</p>`);
+        (cost == null ? '<p class="hint">已達最高等級</p>'
+          : `<button id="btn-upgrade" class="upgrade-btn" type="button">升級至 Lv${tw.level + 1}（${cost} CR）<kbd>U</kbd></button>`) +
+        `<div class="tower-actions"><button id="btn-move" class="upgrade-btn" type="button">移動 ${this.game.relocateCost(tw)} CR<kbd>V</kbd></button>` +
+        `<button id="btn-sell" class="upgrade-btn" type="button">出售 +${this.game.sellRefund(tw)} CR<kbd>S</kbd></button></div>`;
     } else {
       info.innerHTML = '<h3>操作說明</h3><p class="hint">從上方選塔（或按 1–0、-、=），在可建塔格（方格底紋）上點擊放置；塔佔 2×2 格。</p>' +
         '<p class="hint">實心路面＝地面路線；懸空虛線＋投影＝空中航道；◇＝地空共用段。指向入口可高亮整條路線。</p>' +
         '<p class="hint">斜線＝邊陲荒地、紋路色塊＝主題地形，皆不可建塔。隱形敵人需 T05 偵測 6.0 格內才會顯形。</p>' +
-        '<p class="hint">Space 下一波・P 暫停・F 倍速・U 升級選取的塔・M 音樂・N 音效</p>';
+        '<p class="hint">Space 下一波・P 暫停・F 倍速・U 升級・V 移動・S 出售選取的塔・M 音樂・N 音效</p>';
     }
   }
 
@@ -514,6 +564,10 @@ export class App {
     for (const b of document.querySelectorAll('.tower-btn')) b.classList.toggle('poor', g.cr < TOWER_BY_ID[b.dataset.tower].cost);
     const up = $('#btn-upgrade');
     if (up && this.selected) up.disabled = g.cr < this.selected.def.upgradeCost || !!g.result;
+    const mv = $('#btn-move');
+    if (mv && this.selected) mv.disabled = g.cr < g.relocateCost(this.selected) || !!g.result;
+    const sell = $('#btn-sell');
+    if (sell) sell.disabled = !!g.result;
     this.updateBanner();
   }
 
@@ -527,7 +581,7 @@ export class App {
       if (!g.result) g.step(this.clock.advance(dt));
       const events = g.drainEvents();
       if (events.length) this.handleEvents(events);
-      this.scene.render({ hover: this.hover, placing: this.placing, selected: this.selected, hoverEnemy: this.hoverEnemy?.alive && this.hoverEnemy.revealed ? this.hoverEnemy : null, hoverRoute: this.hoverRoute });
+      this.scene.render({ hover: this.hover, placing: this.placing, moving: this.moving, selected: this.selected, hoverEnemy: this.hoverEnemy?.alive && this.hoverEnemy.revealed ? this.hoverEnemy : null, hoverRoute: this.hoverRoute });
       this.updateHud();
     }
     requestAnimationFrame((t) => this.frame(t));
@@ -537,8 +591,12 @@ export class App {
     this.scene.addEvents(events);
     for (const ev of events) {
       switch (ev.type) {
+        case 'relocate':
+          this.audio.sfx('build');
+          break;
         case 'build':
         case 'upgrade':
+        case 'sell':
         case 'waveStart':
         case 'shieldBreak':
         case 'baseHit':

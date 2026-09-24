@@ -422,6 +422,8 @@ export class Scene {
           break;
         case 'build':
         case 'upgrade':
+        case 'relocate':
+        case 'sell':
           this.effects.push({ kind: 'build', t, life: 24, x: ev.tower.cx, y: ev.tower.cy });
           break;
         default:
@@ -431,7 +433,7 @@ export class Scene {
   }
 
   /**
-   * view：{ hover:[wx,wy]|null, placing:towerId|null, selected:tower|null, hoverEnemy, hoverRoute, time }
+   * view：{ hover:[wx,wy]|null, placing:towerId|null, moving:tower|null, selected:tower|null, hoverEnemy, hoverRoute, time }
    */
   render(view) {
     const { ctx, game } = this;
@@ -475,7 +477,16 @@ export class Scene {
     this.drawEffects(now, true);
 
     for (const e of [...ground, ...air]) this.drawBars(e, view.hoverEnemy === e);
-    if (view.placing && view.hover) this.drawPlacement(view.placing, view.hover);
+    if (view.hover && (view.placing || view.moving)) {
+      const [tx, ty] = placementCell(...view.hover);
+      if (view.moving) {
+        const tw = view.moving;
+        this.drawPlacement(tw.id, tw.def, tx, ty, game.canRelocate(tw, tx, ty) && game.cr >= game.relocateCost(tw));
+      } else {
+        const def = TOWER_BY_ID[view.placing];
+        this.drawPlacement(def.id, def, tx, ty, game.canPlace(def.id, tx, ty) && game.cr >= def.cost);
+      }
+    }
   }
 
   /** 塔等級標記：塔區塊右下角的菱形，Lv2 一顆、Lv3 兩顆（Lv1 不標）。 */
@@ -901,13 +912,9 @@ export class Scene {
     ctx.restore();
   }
 
-  /** 放置預覽：可放置顯示實線框＋勾、不可放置顯示斜線框＋叉（不只靠顏色，UI3）。 */
-  drawPlacement(towerId, [wx, wy]) {
-    const { ctx, game } = this;
-    const [tx, ty] = placementCell(wx, wy);
-    const def = TOWER_BY_ID[towerId];
-    const ok = game.canPlace(towerId, tx, ty);
-    const afford = game.cr >= def.cost;
+  /** 放置／移動預覽：可放置顯示實線框＋勾、不可放置顯示斜線框＋叉（不只靠顏色，UI3）。 */
+  drawPlacement(towerId, def, tx, ty, ok) {
+    const { ctx } = this;
     this.drawRanges(def, tx + 1, ty + 1, false);
     ctx.save();
     ctx.globalAlpha = 0.55;
@@ -916,8 +923,8 @@ export class Scene {
     ctx.restore();
     ctx.save();
     ctx.lineWidth = 0.08;
-    ctx.strokeStyle = ok && afford ? '#6dff8a' : '#ff5a5a';
-    if (!(ok && afford)) ctx.setLineDash([0.18, 0.12]);
+    ctx.strokeStyle = ok ? '#6dff8a' : '#ff5a5a';
+    if (!ok) ctx.setLineDash([0.18, 0.12]);
     ctx.strokeRect(tx + 0.04, ty + 0.04, 1.92, 1.92);
     ctx.setLineDash([]);
     ctx.translate(tx + 1.72, ty + 0.28);
@@ -926,7 +933,7 @@ export class Scene {
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
     ctx.fill();
     ctx.beginPath();
-    if (ok && afford) {
+    if (ok) {
       ctx.moveTo(-0.1, 0);
       ctx.lineTo(-0.02, 0.09);
       ctx.lineTo(0.12, -0.09);

@@ -374,6 +374,9 @@ export class AudioEngine {
       case 'upgrade':
         [72, 76, 79, 84].forEach((n, i) => this.tone(sq, n, t + i * 0.05, 0.06, 0.12, 0, d));
         break;
+      case 'sell':
+        [79, 76, 72].forEach((n, i) => this.tone(sq, n, t + i * 0.05, 0.06, 0.12, 0, d));
+        break;
       case 'waveStart':
         [60, 64, 67, 72].forEach((n, i) => this.tone(p25, n, t + i * 0.07, 0.09, 0.12, 0, d));
         break;
