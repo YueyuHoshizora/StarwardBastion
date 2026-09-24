@@ -1,0 +1,25 @@
+{
+  "name": "星域防線 Starward Bastion",
+  "short_name": "星域防線",
+  "description": "未來科技俯視塔防：20 張地圖、12 種防禦塔、16 種敵人、20 首原創 8-bit 音樂。",
+  "lang": "zh-Hant",
+  "id": "/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#070b16",
+  "theme_color": "#0a0f1c",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "icons/og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "星域防線 Starward Bastion" }
+  ]
+}
