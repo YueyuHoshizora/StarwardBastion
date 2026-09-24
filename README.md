@@ -39,6 +39,10 @@ node tools/serve.mjs      # 需要 Node.js 20 以上，開啟 http://localhost:8
 
 也可以使用任何靜態網站伺服器，或部署到靜態網站主機。
 
+部署前執行 `npm run assets:hash`，依 JS／CSS 內容產生 `?hash`，同步首頁 import map 與 Service Worker 快取版本；提交 `index.html`、`sw.js` 與修改過的資源。`node tools/hash-assets.mjs --check` 可檢查雜湊是否過期。模組相依檔也全部版本化，不只入口 JS。
+
+首頁由 `src/boot.js` 先等待離線快取更新，再載入 CSS 與遊戲。Service Worker 不忽略查詢參數；導覽優先網路、離線才回退已快取首頁，避免新介面配到舊程式。舊版工作者首次收到更新前仍可能回傳舊首頁，更新完成後重新整理即可，毋須清除音量設定。
+
 ## 操作
 
 | 按鍵 | 功能 |

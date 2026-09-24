@@ -56,10 +56,14 @@ npm test                 # 全部測試
 npm run spec:waves       # 重新產生 src/data/waves.js
 npm run spec:docs        # 重新產生 docs/附錄A–C 與 DESIGN.md
 node tools/balance.mjs   # 平衡掃描 → docs/平衡測試報告.md（平行執行，約 1.5 分鐘）
+npm run assets:hash      # 部署前產生 JS/CSS ?hash、import map 與離線快取版本
+node tools/hash-assets.mjs --check # 確認已提交的雜湊沒有過期
 node tools/serve.mjs     # 本機伺服器 http://localhost:8080
 ```
 
 修改 `maps.js` 或波次生成器後，必須重新產生附錄並執行測試。修改塔、敵人、經濟或地圖數值後，還要執行 `node tools/balance.mjs`，確認終端輸出「地圖判定 20/20」、星級平均一般勝率「遞減」、沒有超出 ±12% 的塔種，且割草檢查全部通過，並同步規格補完提案第七節。M08、M12、M18、M20 的可行區間很窄，改數值後要優先檢查。
+
+修改執行期資源、首頁或 Service Worker 後，提交前必須執行 `npm run assets:hash`，一起提交生成的 `index.html` 與 `sw.js`。不要手動遞增快取版本，也不要在快取查找使用 `ignoreSearch: true`；JS 模組相依 URL 由首頁 import map 統一版本化。首次從舊工作者升級的 smoke 必須保留舊快取，不得只用清空快取的乾淨環境驗證。
 
 ## 實作慣例
 

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "assets:hash": "node tools/hash-assets.mjs",
     "test": "node --test \"tests/**/*.test.mjs\"",
     "spec:waves": "node tools/generate-waves.mjs",
     "spec:docs": "node tools/render-spec.mjs && node tools/render-design.mjs"

@@ -24,7 +24,7 @@
 | 音訊 | `src/audio/*.js` | Web Audio 音序器（20 首地圖曲＋首頁／地圖選擇共用選單曲）、事件音效、首頁與地圖選擇的按鈕點擊音效、音樂與音效各自的靜音與音量滑桿（首頁、地圖選擇、對局；設定存於 localStorage `sb-audio`）、暫停續播；瀏覽器擋自動播放時於首頁提示 |
 | 分享卡 | `src/ui/sharecard.js` | 1200×675 PNG 繪製與下載 |
 | 工具 | `tools/*.mjs` | 波次產生、文件產生、圖標產生、靜態伺服器、平衡模擬 |
-| PWA | `sw.js`、`manifest.webmanifest`、`src/pwa.js`、`icons/` | 離線快取、安裝、圖標、OG 分享圖；正式網址 https://starward-bastion.yustellar.dev（`CNAME`） |
+| PWA | `sw.js`、`manifest.webmanifest`、`src/boot.js`、`src/pwa.js`、`tools/hash-assets.mjs`、`icons/` | JS/CSS 內容雜湊查詢參數與 import map；啟動先完成工作者更新；完整 URL 快取、導覽網路優先及離線回退；安裝、圖標、OG 分享圖；正式網址 https://starward-bastion.yustellar.dev（`CNAME`） |
 
 - **固定步長**：模擬以 1/60 秒為一步。倍速 k× 時，每個畫面推進的模擬時間是實際時間的 k 倍，並以固定步長分批執行。因此 1×、2×、4× 的結果逐步相同，符合 R11 與 Gate B 的倍速一致性要求。
 - **亂數**：模擬本身不使用亂數。所有判定都是決定性的，以便重現與測試。

@@ -1,14 +1,9 @@
-// PWA：註冊 Service Worker、顯示離線狀態、提供「安裝為應用程式」按鈕。
+// PWA：離線快取由 boot.js 註冊並更新；此處顯示狀態與「安裝為應用程式」按鈕。
 export function setupPwa({ installButton, statusEl }) {
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').then(
-      (reg) => {
-        const ready = () => statusEl && (statusEl.textContent = '已可離線遊玩');
-        if (reg.active) ready();
-        else navigator.serviceWorker.ready.then(ready);
-      },
-      () => statusEl && (statusEl.textContent = ''),
-    );
+    navigator.serviceWorker.ready.then(() => {
+      if (statusEl) statusEl.textContent = '已可離線遊玩';
+    });
   }
   let deferred = null;
   window.addEventListener('beforeinstallprompt', (e) => {

@@ -1,10 +1,9 @@
 // Service Worker：預先快取全部遊戲檔案，支援離線遊玩（PWA）。
-// 更新任何遊戲檔案後須提高 VERSION；tests/pwa.test.mjs 會檢查 PRECACHE 涵蓋所有執行期檔案。
-const VERSION = 'sb-v8';
+// VERSION 與 PRECACHE 由 npm run assets:hash 產生；JS/CSS 查詢參數不可忽略。
+const VERSION = 'sb-6c59c6cbfe62d97c';
 const PRECACHE = [
   './',
   'index.html',
-  'styles.css',
   'manifest.webmanifest',
   'favicon.ico',
   'icons/icon.svg',
@@ -13,57 +12,57 @@ const PRECACHE = [
   'icons/icon-maskable-192.png',
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
-  'src/main.js',
-  'src/pwa.js',
-  'src/ui/app.js',
-  'src/ui/sharecard.js',
-  'src/audio/audio.js',
-  'src/render/scene.js',
-  'src/render/sprites.js',
-  'src/core/game.js',
-  'src/core/mapgeom.js',
-  'src/core/waves.js',
-  'src/data/difficulty.js',
-  'src/data/enemies.js',
-  'src/data/maps.js',
-  'src/data/music.js',
-  'src/data/towers.js',
-  'src/data/waves.js',
+  'styles.css?44957a1e9e91a785',
+  'src/audio/audio.js?c90718ccd3b9129d',
+  'src/boot.js?17bcade6968f5340',
+  'src/core/game.js?bdab6a5eae911cc7',
+  'src/core/mapgeom.js?d314a0e4ca3593db',
+  'src/core/waves.js?d91de24bffb00a7a',
+  'src/data/difficulty.js?0c3f404f3b8b9498',
+  'src/data/enemies.js?7c995a74b462cbf0',
+  'src/data/maps.js?8741a0d292d63389',
+  'src/data/music.js?4f037bad87845156',
+  'src/data/towers.js?2be2269fae3309eb',
+  'src/data/waves.js?cab60c4a7a6d3e19',
+  'src/main.js?753a0b6972c4c2cb',
+  'src/pwa.js?3ca191bc0b2fed9b',
+  'src/render/scene.js?3be186f475aadcfd',
+  'src/render/sprites.js?79442e4afc58ad74',
+  'src/ui/app.js?b1ef2cf6119825c9',
+  'src/ui/sharecard.js?2fce8658a64b4668',
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE.map((url) => new Request(url, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('sb-') && k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
 
-// 同源 GET：快取優先，背景更新（stale-while-revalidate）；導覽請求離線時回退到 index.html。
+// 導覽優先取得最新 HTML；離線回退首頁。資源依完整 URL 快取，保留 ?hash 的版本隔離。
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  event.respondWith(
-    caches.open(VERSION).then(async (cache) => {
-      const cached = await cache.match(req, { ignoreSearch: true });
-      const network = fetch(req)
-        .then((res) => {
-          if (res.ok) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => null);
-      if (cached) {
-        event.waitUntil(network);
-        return cached;
-      }
-      const res = await network;
-      if (res) return res;
-      if (req.mode === 'navigate') return cache.match('index.html');
+  event.respondWith((async () => {
+    const cache = await caches.open(VERSION);
+    if (req.mode === 'navigate') {
+      try {
+        const res = await fetch(req, { cache: 'no-cache' });
+        if (res.ok) return res;
+      } catch {}
+      return await cache.match('index.html') || new Response('', { status: 504, statusText: 'Offline' });
+    }
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    try {
+      return await fetch(req);
+    } catch {
       return new Response('', { status: 504, statusText: 'Offline' });
-    }),
-  );
+    }
+  })());
 });

@@ -51,7 +51,7 @@
 | 選單曲 BGM-MENU：首頁載入即嘗試播放；瀏覽器要求使用者操作時顯示「點擊任意處或按任意鍵開啟音樂與音效」，首次點擊或按鍵後開始；地圖選擇沿用不中斷，進入地圖切換地圖曲，返回選圖恢復選單曲 | ✅ | tests/spec.test.mjs（長度、與地圖曲不重複）；瀏覽器實測：載入時 AudioContext 為 suspended 且顯示提示，按鍵後 running、提示隱藏、主輸出有訊號 |
 | 首頁與地圖選擇的按鈕點擊音效：一般按鈕為點擊音、地圖卡為確認音 | ✅ | 瀏覽器實測：開始遊戲、音樂／音效切換觸發 `click`，地圖卡觸發 `confirm`，主輸出有訊號 |
 | 音樂與音效音量滑桿（0–100%）：首頁、地圖選擇與對局狀態列三處同步；拖到大於 0 自動解除該聲道靜音；靜音與音量存於 localStorage，重新載入後沿用 | ✅ | 瀏覽器實測：音樂 30% 時音樂增益 0.150（0.5×0.3），音效 0% 時增益 0；三處滑桿值一致；`M` 靜音後拖動滑桿即解除；重新載入後仍為音樂 60%、音效 0%；4 視口 × 首頁／地圖選擇／對局無捲軸、無按鈕超出視口（12／12） |
-| PWA：manifest、Service Worker 離線快取、安裝按鈕 | ✅ | tests/pwa.test.mjs（預先快取涵蓋全部模組、圖示檔存在） |
+| PWA：manifest、Service Worker 離線快取、安裝按鈕、JS/CSS `?hash` 更新 | ✅ | `tests/pwa.test.mjs`：不同 hash 不命中舊快取、同版本離線可用、首頁網路優先與離線回退。Chromium 保留 sb-v8 舊工作者，注入失效滑桿 JS 與舊 CSS 後升級：舊快取移除、17 個 JS 及 CSS 使用 hash；音樂／音效按鈕可切換，滑桿 10%／95% 對應增益 0.05／0.57；離線重新載入保留音量。82 項測試通過，雜湊核對通過。 |
 | 圖標：SVG、PNG 192／512、maskable、apple-touch、favicon.ico | ✅ | `node tools/build-icons.mjs` |
 | OG／Twitter 分享標籤與 1200×630 分享圖 | ✅ | index.html；icons/og-image.png |
 | CNAME：starward-bastion.yustellar.dev | ✅ | CNAME |
