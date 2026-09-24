@@ -6,7 +6,7 @@ import { MAPS } from '../src/data/maps.js';
 import { WAVES } from '../src/data/waves.js';
 import { ENEMY_BY_ID } from '../src/data/enemies.js';
 import { DIFFICULTY, waveSize, scaledHp } from '../src/data/difficulty.js';
-import { TRACKS, loopSeconds } from '../src/data/music.js';
+import { TRACKS, MENU_TRACK, loopSeconds } from '../src/data/music.js';
 import { buildMap } from '../src/core/mapgeom.js';
 import { buildSpawnSchedule } from '../src/core/waves.js';
 import { renderAscii } from './map-preview.mjs';
@@ -100,10 +100,10 @@ const c = [
   '| 音軌 ID | 地圖 | 曲名 | BPM | 小節 | 循環秒數 | 主音 MIDI | 主旋律音高 | 主旋律節奏 | 主音色 | 大鼓 | 小鼓 | 識別（製作表） |',
   '|---|---|---|---:|---:|---:|---:|---|---|---|---|---|---|',
 ];
-for (const t of TRACKS) {
+for (const t of [...TRACKS, MENU_TRACK]) {
   const tone = `${t.lead.wave}${t.lead.duty ? ` ${t.lead.duty * 100}%` : ''}${t.lead.distortion ? ' 失真' : ''}`;
-  c.push(`| ${t.id} | ${t.mapId} | ${t.title} | ${t.bpm} | ${t.bars} | ${loopSeconds(t).toFixed(1)} | ${t.root} | ${names(t.motif)} | ${t.motif.steps.join('-')} | ${tone} | \`${t.drums.k}\` | \`${t.drums.s}\` | ${t.identity} |`);
+  c.push(`| ${t.id} | ${t.mapId ?? '首頁／地圖選擇'} | ${t.title} | ${t.bpm} | ${t.bars} | ${loopSeconds(t).toFixed(1)} | ${t.root} | ${names(t.motif)} | ${t.motif.steps.join('-')} | ${tone} | \`${t.drums.k}\` | \`${t.drums.s}\` | ${t.identity} |`);
 }
-c.push('');
+c.push('', '`BGM-MENU` 為首頁與地圖選擇共用的選單曲，不計入 20 首地圖曲；兩個畫面間切換不會重新開始播放。', '');
 writeFileSync(new URL('../docs/附錄C_音樂音序.md', import.meta.url), c.join('\n'));
 console.log('已更新 docs/附錄A_地圖資料.md、docs/附錄B_波次編成.md、docs/附錄C_音樂音序.md');

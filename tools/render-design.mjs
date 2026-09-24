@@ -5,7 +5,7 @@ import { ENEMIES } from '../src/data/enemies.js';
 import { DIFFICULTY, BASE_HP, START_CR, WAVE_STIPEND_CR, WAVES_PER_MAP, waveSize, waveMultPct, scaledHp, scaledSpeed } from '../src/data/difficulty.js';
 import { MAPS } from '../src/data/maps.js';
 import { WAVES } from '../src/data/waves.js';
-import { TRACKS, loopSeconds } from '../src/data/music.js';
+import { TRACKS, MENU_TRACK, loopSeconds } from '../src/data/music.js';
 import { getMap, TICKS_PER_SEC, PROJECTILE, PIERCE_HALF_WIDTH, RESTEALTH_TICKS } from '../src/core/game.js';
 import { SPAWN_INTERVAL } from '../src/core/waves.js';
 import { ENEMY_BY_ID } from '../src/data/enemies.js';
@@ -135,7 +135,7 @@ p();
 p('## 7. 音樂');
 p();
 head(['音軌', '地圖', '曲名', 'BPM', '小節', '循環秒數', '識別'], ['---', '---', '---', '---:', '---:', '---:', '---']);
-for (const t of TRACKS) row([t.id, t.mapId, t.title, String(t.bpm), String(t.bars), fmt(loopSeconds(t), 1), t.identity]);
+for (const t of [...TRACKS, MENU_TRACK]) row([t.id, t.mapId ?? '首頁／選圖', t.title, String(t.bpm), String(t.bars), fmt(loopSeconds(t), 1), t.identity]);
 p();
 
 writeFileSync(new URL('../DESIGN.md', import.meta.url), `${L.join('\n')}`);
