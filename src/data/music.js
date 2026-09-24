@@ -128,4 +128,12 @@ export const TRACKS = [
 ];
 
 export const TRACK_BY_MAP = Object.fromEntries(TRACKS.map((t) => [t.mapId, t]));
+
+/** 首頁與地圖選擇共用的選單曲（不綁定地圖，不計入 20 首地圖曲）。 */
+export const MENU_TRACK = { id: 'BGM-MENU', mapId: null, title: '星域序曲', bpm: 100, bars: 28, root: 62,
+  identity: '上揚五度呼喚動機／寬鬆半速拍／回聲脈衝波與三角波和聲',
+  lead: { wave: 'pulse', duty: 0.25, echo: { delaySteps: 4, gain: 0.4, repeats: 1 } }, harmony: { wave: 'triangle', interval: -12, delaySteps: 0 }, bass: { wave: 'triangle' },
+  motif: { notes: [0, 7, 12, 14, 12, 7], steps: [2, 2, 2, 4, 2, 4] },
+  progression: [0, 5, 9, 7, 0, 4, 2, 7],
+  drums: { k: 'k.......k.......', s: '........s.......', h: '..h...h...h...h.', fill: 'k.......s...s.s.' } };
 export const loopSeconds = (t) => (t.bars * 4 * 60) / t.bpm;

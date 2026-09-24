@@ -6,7 +6,7 @@ import { WAVES } from '../src/data/waves.js';
 import { TOWERS } from '../src/data/towers.js';
 import { ENEMIES, ENEMY_BY_ID, CAP_GROUPS, capLimit, isShield, isStealth, isSplit } from '../src/data/enemies.js';
 import { DIFFICULTY, waveSize, scaledHp, scaledSpeed, START_CR, WAVE_STIPEND_CR } from '../src/data/difficulty.js';
-import { TRACKS, loopSeconds } from '../src/data/music.js';
+import { TRACKS, MENU_TRACK, loopSeconds } from '../src/data/music.js';
 import { buildMap, GRID_W, GRID_H } from '../src/core/mapgeom.js';
 import { buildSpawnSchedule, SPAWN_INTERVAL } from '../src/core/waves.js';
 
@@ -135,4 +135,9 @@ test('20 首音樂一對一綁定地圖且長度 60–90 秒、動機互不相�
     signatures.add(sig);
     for (const lane of ['k', 's', 'h', 'n', 'fill']) if (t.drums[lane]) assert.equal(t.drums[lane].length, 16);
   }
+  // 首頁／地圖選擇共用的選單曲：同樣 60–90 秒，且不與任何地圖曲重複
+  const menuSec = loopSeconds(MENU_TRACK);
+  assert.ok(menuSec >= 60 && menuSec <= 90, `選單曲長度 ${menuSec}`);
+  assert.ok(!signatures.has(JSON.stringify([MENU_TRACK.motif, MENU_TRACK.drums.k, MENU_TRACK.drums.s])), '選單曲與地圖曲重複');
+  assert.ok(!TRACKS.some((t) => t.id === MENU_TRACK.id));
 });
