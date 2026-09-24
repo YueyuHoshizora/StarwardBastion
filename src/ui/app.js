@@ -427,10 +427,10 @@ export class App {
         (cost == null ? '<p class="hint">已達最高等級・塔不可出售</p>'
           : `<button id="btn-upgrade" class="upgrade-btn" type="button">升級至 Lv${tw.level + 1}（${cost} CR）<kbd>U</kbd></button><p class="hint">塔不可出售</p>`);
     } else {
-      info.innerHTML = '<h3>操作說明</h3><p class="hint">從上方選塔（或按 1–0、-、=），在可建塔格（方格底紋）上點擊放置；塔佔 2×2 格。點擊已建造的塔可升級（最高 Lv3）。</p>' +
+      info.innerHTML = '<h3>操作說明</h3><p class="hint">從上方選塔（或按 1–0、-、=），在可建塔格（方格底紋）上點擊放置；塔佔 2×2 格。</p>' +
         '<p class="hint">實心路面＝地面路線；懸空虛線＋投影＝空中航道；◇＝地空共用段。指向入口可高亮整條路線。</p>' +
         '<p class="hint">斜線＝邊陲荒地、紋路色塊＝主題地形，皆不可建塔。隱形敵人需 T05 偵測 6.0 格內才會顯形。</p>' +
-        '<p class="hint">Space 開始下一波・P 暫停・F 倍速・U 升級・M 音樂・N 音效</p>';
+        '<p class="hint">Space 下一波・P 暫停・F 倍速・U 升級選取的塔・M 音樂・N 音效</p>';
     }
   }
 
