@@ -1,6 +1,6 @@
 // 由資料模組產生 DESIGN.md（數值設計紀錄）。任何數值只從 src/data 與 src/core 讀取，文件不得手改。
 import { writeFileSync } from 'node:fs';
-import { TOWERS, TOWER_LEVELS, UPGRADE_STEPS, TARGET_LABEL } from '../src/data/towers.js';
+import { TOWERS, TOWER_LEVELS, UPGRADE_STEPS, TARGET_LABEL, RELOCATE_COST_PERCENT, SELL_REFUND_PERCENT } from '../src/data/towers.js';
 import { ENEMIES } from '../src/data/enemies.js';
 import { DIFFICULTY, BASE_HP, START_CR, WAVE_STIPEND_CR, WAVES_PER_MAP, waveSize, waveMultPct, scaledHp, scaledSpeed } from '../src/data/difficulty.js';
 import { MAPS } from '../src/data/maps.js';
@@ -34,7 +34,9 @@ row(['波次津貼（第 2–20 波按下開始時）', `${WAVE_STIPEND_CR} CR`]
 row(['基地生命', String(BASE_HP)]);
 row(['每張地圖波數', String(WAVES_PER_MAP)]);
 row(['每名漏怪扣基地生命', '1']);
-row(['出售／利息', '無']);
+row(['出售', `隨時；退還累計投資（造價＋升級費）${SELL_REFUND_PERCENT}%，四捨五入至 10 CR`]);
+row(['移動', `隨時；費用為累計投資 ${RELOCATE_COST_PERCENT}%，四捨五入至 10 CR；保留等級與冷卻、不停機`]);
+row(['利息', '無']);
 row(['升級', `Lv1–Lv${UPGRADE_STEPS.length + 1}（見 3.1）`]);
 p();
 p('公式：每波主體數 `N(n)=6+⌊n/2⌋`；波次倍率 `W(n)=1+0.05×(n−1)`；實際 HP／護盾＝`round_half_up(基礎 × 星級生命倍率 × 關卡 HP 調校 × W(n))`（關卡 HP 調校見第 5 節）；實際移速＝`round_half_up(基礎 × 星級速度倍率, 2)`；擊敗獎勵不乘倍率。');
