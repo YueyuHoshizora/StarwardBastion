@@ -1,5 +1,6 @@
 // 由資料模組產生規格附錄：node tools/render-spec.mjs
 // 附錄內容完全由 src/data 推導，修改資料後重新執行即可同步。
+import { SPAWN_INTERVAL } from '../src/core/waves.js';
 import { writeFileSync } from 'node:fs';
 import { MAPS } from '../src/data/maps.js';
 import { WAVES } from '../src/data/waves.js';
@@ -58,7 +59,7 @@ const b = [
   '',
   '> 由 `node tools/render-spec.mjs` 從 `src/data/waves.js` 產生，請勿手動修改。',
   '',
-  '「編成」依生成順序列出敵群（`E01×4` 表示連續 4 名 E01）。路線分派：同層級敵人依序輪替該層路線（G1→G2→…；A1→A2→…），共用入口的路線共用佇列；同一入口每 1.0 秒生成一名。',
+  `「編成」依生成順序列出敵群（\`E01×4\` 表示連續 4 名 E01）。路線分派：同層級敵人依序輪替該層路線（G1→G2→…；A1→A2→…）；全圖共用一個出怪佇列，每 ${SPAWN_INTERVAL.toFixed(1)} 秒生成一名。`,
   '「總 HP／總護盾」為主體敵人套用星級與波次倍率後的合計，不含 E10 子體；「擊敗獎勵」為全數擊敗可得 CR（不含子體，子體不給獎勵）。',
   '',
 ];
