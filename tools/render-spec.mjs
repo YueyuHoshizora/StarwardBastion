@@ -42,6 +42,7 @@ for (const def of MAPS) {
   const shared = map.sharedSegments.map((s) => `(${s.a})–(${s.b})`).join('、');
   a.push(`## ${def.id} ${def.name} ${stars(def.star)}`, '');
   a.push(`- 主題：${def.theme}`);
+  a.push(`- 敵人生命：星級倍率 ×${(DIFFICULTY[def.star].hpPct / 100).toFixed(2)}、關卡 HP 調校 ${def.hpTune}%。`);
   a.push(`- 基地：左上角 (${def.base.join(',')})，佔 2×2 格；所有路線終點位於基地內。`);
   for (const r of def.ground) a.push(`- 地面路線 ${r.id}${r.width ? `（路寬 ${r.width} 格）` : ''}：${pts(r.points)}`);
   for (const r of def.air) a.push(`- 空中航道 ${r.id}：${pts(r.points)}`);
@@ -60,7 +61,7 @@ const b = [
   '> 由 `node tools/render-spec.mjs` 從 `src/data/waves.js` 產生，請勿手動修改。',
   '',
   `「編成」依生成順序列出敵群（\`E01×4\` 表示連續 4 名 E01）。路線分派：同層級敵人依序輪替該層路線（G1→G2→…；A1→A2→…）；全圖共用一個出怪佇列，每 ${SPAWN_INTERVAL.toFixed(1)} 秒生成一名。`,
-  '「總 HP／總護盾」為主體敵人套用星級與波次倍率後的合計，不含 E10 子體；「擊敗獎勵」為全數擊敗可得 CR（不含子體，子體不給獎勵）。',
+  '「總 HP／總護盾」為主體敵人套用星級倍率、關卡 HP 調校與波次倍率後的合計，不含 E10 子體；「擊敗獎勵」為全數擊敗可得 CR（不含子體，子體不給獎勵）。',
   '',
 ];
 for (const def of MAPS) {
@@ -74,8 +75,8 @@ for (const def of MAPS) {
     let cr = 0;
     for (const [id, c] of groups) {
       const e = ENEMY_BY_ID[id];
-      hp += c * scaledHp(e.hp, def.star, n);
-      sh += c * scaledHp(e.shield, def.star, n);
+      hp += c * scaledHp(e.hp, def.star, n, def.hpTune);
+      sh += c * scaledHp(e.shield, def.star, n, def.hpTune);
       cr += c * e.reward;
     }
     const schedule = buildSpawnSchedule(map, def.id, n);

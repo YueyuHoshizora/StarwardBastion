@@ -79,7 +79,7 @@ test('一般傷害先扣護盾、溢出扣 HP；T01 無視護盾直扣 HP 且不
   buildNear(g, 'T01', e2);
   // 直到命中一次
   for (let i = 0; i < 60 && e2.hp === e2.maxHp; i++) g.step(1);
-  assert.equal(e2.hp, e2.maxHp - 9);
+  assert.equal(e2.hp, e2.maxHp - TOWER_BY_ID.T01.damage);
   assert.equal(e2.shield, e2.maxShield);
 });
 
@@ -91,9 +91,10 @@ test('鏈式攻擊每跳 ×0.7，最多 2 跳，跳距內才連鎖（T06）', ()
   const far = frozen(g, 'E03', 30);
   const t = buildNear(g, 'T06', c, 3.5);
   g.fire(t, c);
-  assert.equal(c.maxHp - c.hp, 24);
-  assert.ok(Math.abs(b.maxHp - b.hp - 16.8) < 1e-9);
-  assert.ok(Math.abs(a.maxHp - a.hp - 11.76) < 1e-9);
+  const d = TOWER_BY_ID.T06.damage;
+  assert.equal(c.maxHp - c.hp, d);
+  assert.ok(Math.abs(b.maxHp - b.hp - d * 0.7) < 1e-9);
+  assert.ok(Math.abs(a.maxHp - a.hp - d * 0.49) < 1e-9);
   assert.equal(far.hp, far.maxHp);
 });
 
@@ -185,7 +186,7 @@ test('E10 死亡生成 2 隻 E01 子體：計入擊敗、不給獎勵（Q10）',
   assert.equal(g.cr, cr + 11);
   const kids = g.enemies.filter((x) => x.isChild);
   assert.equal(kids.length, 2);
-  assert.ok(kids.every((k) => k.id === 'E01' && k.dist === 20 && k.maxHp === scaledHp(ENEMY_BY_ID.E01.hp, 1, 1)));
+  assert.ok(kids.every((k) => k.id === 'E01' && k.dist === 20 && k.maxHp === scaledHp(ENEMY_BY_ID.E01.hp, 1, 1, g.def.hpTune)));
   for (const k of kids) g.damage(k, 1e6, false, null);
   assert.equal(g.cr, cr + 11);
   assert.equal(g.stats.kills, 3);

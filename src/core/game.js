@@ -185,8 +185,8 @@ export class Game {
   spawn(enemyId, routeId, distance, wave, isChild) {
     const def = ENEMY_BY_ID[enemyId];
     const path = this.paths[routeId];
-    const hp = scaledHp(def.hp, this.star, wave);
-    const shield = scaledHp(def.shield, this.star, wave);
+    const hp = scaledHp(def.hp, this.star, wave, this.def.hpTune);
+    const shield = scaledHp(def.shield, this.star, wave, this.def.hpTune);
     const stealth = def.category === 'stealth';
     const e = {
       uid: ++this.uid, id: enemyId, def, layer: def.layer, wave, isChild,

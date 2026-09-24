@@ -37,7 +37,7 @@ row(['每名漏怪扣基地生命', '1']);
 row(['出售／利息', '無']);
 row(['升級', `Lv1–Lv${UPGRADE_STEPS.length + 1}（見 3.1）`]);
 p();
-p('公式：每波主體數 `N(n)=6+⌊n/2⌋`；波次倍率 `W(n)=1+0.05×(n−1)`；實際 HP／護盾＝`round_half_up(基礎 × 星級生命倍率 × W(n))`；實際移速＝`round_half_up(基礎 × 星級速度倍率, 2)`；擊敗獎勵不乘倍率。');
+p('公式：每波主體數 `N(n)=6+⌊n/2⌋`；波次倍率 `W(n)=1+0.05×(n−1)`；實際 HP／護盾＝`round_half_up(基礎 × 星級生命倍率 × 關卡 HP 調校 × W(n))`（關卡 HP 調校見第 5 節）；實際移速＝`round_half_up(基礎 × 星級速度倍率, 2)`；擊敗獎勵不乘倍率。');
 p();
 head(['n', ...Array.from({ length: 20 }, (_, i) => String(i + 1))]);
 row(['N(n)', ...Array.from({ length: 20 }, (_, i) => String(waveSize(i + 1)))]);
@@ -81,7 +81,7 @@ const CAT = { normal: '—', fast: '快速', heavy: '重型', shield: '護盾', 
 for (const e of ENEMIES) row([e.id, e.name, e.type, e.layer === 'air' ? '空中' : '地面', String(e.hp), String(e.shield), fmt(e.speed / 100), String(e.reward), `第 ${e.earliest} 波`, CAT[e.category]]);
 p();
 
-p('### 4.1 實際 HP（＋護盾）：第 1 波／第 20 波');
+p('### 4.1 實際 HP（＋護盾）：第 1 波／第 20 波（關卡 HP 調校 100% 時；各圖再乘第 5 節的調校值）');
 p();
 head(['ID', ...[1, 2, 3, 4, 5].map((s) => `${'★'.repeat(s)}`)], ['---', '---:', '---:', '---:', '---:', '---:']);
 for (const e of ENEMIES) {
@@ -103,9 +103,9 @@ p();
 
 p('## 5. 地圖與波次總量');
 p();
-p('收入上限＝初始資源＋19 次津貼＋全部主體擊敗獎勵（E10 子體無獎勵）。總 HP 含護盾，不含 E10 子體。');
+p('關卡 HP 調校修正同星級地圖因地形造成的難度差異（第四輪平衡，見 `docs/平衡測試報告.md`）。收入上限＝初始資源＋19 次津貼＋全部主體擊敗獎勵（E10 子體無獎勵）。總 HP 含護盾，不含 E10 子體。');
 p();
-head(['地圖', '星級', '可建塔格', '最長地面路徑格數', '20 波主體數', '20 波總 HP', '第 20 波 HP', '收入上限 CR'], ['---', '---', '---:', '---:', '---:', '---:', '---:', '---:']);
+head(['地圖', '星級', '關卡 HP 調校', '可建塔格', '最長地面路徑格數', '20 波主體數', '20 波總 HP', '第 20 波 HP', '收入上限 CR'], ['---', '---', '---:', '---:', '---:', '---:', '---:', '---:', '---:']);
 for (const m of MAPS) {
   const map = getMap(m.id);
   let count = 0;
@@ -115,7 +115,7 @@ for (const m of MAPS) {
   WAVES[m.id].forEach((w, i) => {
     for (const [id, c] of w) {
       const e = ENEMY_BY_ID[id];
-      const h = (scaledHp(e.hp, m.star, i + 1) + scaledHp(e.shield, m.star, i + 1)) * c;
+      const h = (scaledHp(e.hp, m.star, i + 1, m.hpTune) + scaledHp(e.shield, m.star, i + 1, m.hpTune)) * c;
       count += c;
       hp += h;
       if (i === 19) last += h;
@@ -123,7 +123,7 @@ for (const m of MAPS) {
     }
   });
   const longest = Math.max(...map.routes.filter((r) => r.layer === 'ground').map((r) => r.cells.length));
-  row([`${m.id} ${m.name}`, '★'.repeat(m.star), String(map.buildable), String(longest), String(count), String(hp), String(last), String(START_CR + WAVE_STIPEND_CR * 19 + reward)]);
+  row([`${m.id} ${m.name}`, '★'.repeat(m.star), `${m.hpTune}%`, String(map.buildable), String(longest), String(count), String(hp), String(last), String(START_CR + WAVE_STIPEND_CR * 19 + reward)]);
 }
 p();
 
