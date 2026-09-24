@@ -1,6 +1,6 @@
 // 由資料模組產生 DESIGN.md（數值設計紀錄）。任何數值只從 src/data 與 src/core 讀取，文件不得手改。
 import { writeFileSync } from 'node:fs';
-import { TOWERS, TARGET_LABEL } from '../src/data/towers.js';
+import { TOWERS, TOWER_LEVELS, UPGRADE_STEPS, TARGET_LABEL } from '../src/data/towers.js';
 import { ENEMIES } from '../src/data/enemies.js';
 import { DIFFICULTY, BASE_HP, START_CR, WAVE_STIPEND_CR, WAVES_PER_MAP, waveSize, waveMultPct, scaledHp, scaledSpeed } from '../src/data/difficulty.js';
 import { MAPS } from '../src/data/maps.js';
@@ -34,7 +34,8 @@ row(['波次津貼（第 2–20 波按下開始時）', `${WAVE_STIPEND_CR} CR`]
 row(['基地生命', String(BASE_HP)]);
 row(['每張地圖波數', String(WAVES_PER_MAP)]);
 row(['每名漏怪扣基地生命', '1']);
-row(['出售／升級／利息', '無（第一版）']);
+row(['出售／利息', '無']);
+row(['升級', `Lv1–Lv${UPGRADE_STEPS.length + 1}（見 3.1）`]);
 p();
 p('公式：每波主體數 `N(n)=6+⌊n/2⌋`；波次倍率 `W(n)=1+0.05×(n−1)`；實際 HP／護盾＝`round_half_up(基礎 × 星級生命倍率 × W(n))`；實際移速＝`round_half_up(基礎 × 星級速度倍率, 2)`；擊敗獎勵不乘倍率。');
 p();
@@ -60,6 +61,17 @@ for (const t of TOWERS) {
 }
 p();
 p('單體 DPS＝傷害÷間隔（T10 為 2 架合計）；範圍、穿透、鏈式與增傷的總效益另計，不視為單體 DPS（R3）。');
+p();
+p('### 3.1 升級');
+p();
+p(`升級費＝造價 × 比例（四捨五入至 10 CR）；傷害＝Lv1 傷害 × 倍率（四捨五入）；射程＝Lv1 射程＋加成。${UPGRADE_STEPS.map((s) => `Lv${s.level}：費用 ${s.costRatio * 100}%、傷害 ×${s.damageMult}、射程 +${s.rangeBonus} 格`).join('；')}。其他效果不隨等級變化。`);
+p();
+head(['ID', '名稱', 'Lv1 傷害／射程', '→Lv2 費用', 'Lv2 傷害／射程', '→Lv3 費用', 'Lv3 傷害／射程', '總投入'], ['---', '---', '---:', '---:', '---:', '---:', '---:', '---:']);
+for (const t of TOWERS) {
+  const [a, b, c] = TOWER_LEVELS[t.id];
+  const dr = (d) => `${d.damage}／${fmt(d.range, 2)}`;
+  row([t.id, t.name, dr(a), `${a.upgradeCost} CR`, dr(b), `${b.upgradeCost} CR`, dr(c), `${t.cost + a.upgradeCost + b.upgradeCost} CR`]);
+}
 p();
 
 p('## 4. 敵人（E01–E16）基礎值');
