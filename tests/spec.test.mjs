@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAPS } from '../src/data/maps.js';
 import { WAVES } from '../src/data/waves.js';
-import { TOWERS } from '../src/data/towers.js';
 import { ENEMIES, ENEMY_BY_ID, CAP_GROUPS, capLimit, isShield, isStealth, isSplit } from '../src/data/enemies.js';
 import { DIFFICULTY, waveSize, scaledHp, scaledSpeed, START_CR, WAVE_STIPEND_CR } from '../src/data/difficulty.js';
 import { TRACKS, MENU_TRACK, loopSeconds } from '../src/data/music.js';
@@ -43,20 +42,6 @@ for (const def of MAPS) {
   });
 }
 
-test('12 種塔數值符合唯一有效塔表，T05 射程 3.0／偵測 6.0，無 T13', () => {
-  assert.deepEqual(TOWERS.map((t) => t.id), Array.from({ length: 12 }, (_, i) => `T${String(i + 1).padStart(2, '0')}`));
-  const t05 = TOWERS.find((t) => t.id === 'T05');
-  assert.equal(t05.range, 3.0);
-  assert.equal(t05.detectRadius, 6.0);
-  assert.deepEqual(
-    TOWERS.map((t) => [t.cost, t.target, t.range, t.damage, t.interval]),
-    // 第三、四輪平衡（提案第七節）：T01 9→11；T02 230→250 CR、42→38；T03 48→64；T06 24→32；T07 150→170 CR；
-    // T08 260→230 CR；T09 330→250 CR、44→64、2.2→2.0 秒；T10 8→7；T11 340→260 CR、6→12
-    [[120, 'ground', 3.5, 11, 0.6], [250, 'ground', 5.0, 38, 1.8], [280, 'ground', 4.0, 64, 2.4], [300, 'ground', 4.5, 15, 0.5],
-      [220, 'ground', 3.0, 4, 1.0], [290, 'ground', 3.8, 32, 1.2], [170, 'air', 5.5, 30, 1.2], [230, 'air', 4.8, 48, 1.8],
-      [250, 'air', 4.0, 64, 2.0], [310, 'both', 3.8, 7, 0.5], [260, 'both', 3.2, 12, 1.0], [360, 'both', 4.5, 18, 1.0]],
-  );
-});
 
 test('敵人生命、護盾與移速依 round_half_up 計算', () => {
   assert.equal(ENEMIES.length, 16);

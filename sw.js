@@ -1,6 +1,6 @@
 // Service Worker：預先快取全部遊戲檔案，支援離線遊玩（PWA）。
 // VERSION 與 PRECACHE 由 npm run assets:hash 產生；JS/CSS 查詢參數不可忽略。
-const VERSION = 'sb-6c59c6cbfe62d97c';
+const VERSION = 'sb-7cf2243964d50195';
 const PRECACHE = [
   './',
   'index.html',
@@ -22,7 +22,7 @@ const PRECACHE = [
   'src/data/enemies.js?7c995a74b462cbf0',
   'src/data/maps.js?8741a0d292d63389',
   'src/data/music.js?4f037bad87845156',
-  'src/data/towers.js?2be2269fae3309eb',
+  'src/data/towers.js?08c3fa50f583831c',
   'src/data/waves.js?cab60c4a7a6d3e19',
   'src/main.js?753a0b6972c4c2cb',
   'src/pwa.js?3ca191bc0b2fed9b',

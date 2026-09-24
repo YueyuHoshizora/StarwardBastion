@@ -10,7 +10,7 @@ export const TOWERS = [
     effect: '預判落點；爆炸半徑 1.2 格，範圍每名完整傷害', silhouette: '六角形底座、中央大型圓形發射井、三片外伸散熱翼' },
   { id: 'T04', name: '熱熔光束塔', cost: 300, target: 'ground', range: 4.5, damage: 15, interval: 0.5, attack: 'beam', rampPerSec: 0.1, rampMax: 0.5,
     effect: '連續命中每秒增傷 10%，上限 50%，失去／切換目標歸零', silhouette: '三角形底座、中央細長透鏡、三條放射散熱槽' },
-  { id: 'T05', name: '冰晶偵測塔', cost: 220, target: 'ground', range: 3.0, damage: 4, interval: 1.0, attack: 'frost', splash: 1.2, ignoreShield: true,
+  { id: 'T05', name: '冰晶偵測塔', cost: 220, target: 'ground', range: 4.5, damage: 4, interval: 1.0, attack: 'frost', splash: 1.2, ignoreShield: true,
     slow: 0.25, slowDuration: 2, detectRadius: 6.0,
     effect: '攻擊半徑 1.2 格、地面減速 25% 持續 2 秒、無視護盾；6.0 格內空地隱形敵人持續顯形', silhouette: '六角冰晶核心、六向短翼、外圈雷達波紋' },
   { id: 'T06', name: '電弧跳躍塔', cost: 290, target: 'ground', range: 3.8, damage: 32, interval: 1.2, attack: 'chain', jumps: 2, jumpFalloff: 0.7, jumpRange: 2.4,

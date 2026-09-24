@@ -127,10 +127,10 @@ test('範圍攻擊傷害未顯形隱形敵人但不使其顯形；只有 T05 6.0
   // T05：偵測 6.0 格
   const g2 = rich();
   const e = frozen(g2, 'E06', 20);
-  const t5 = buildNear(g2, 'T05', e, 6.0, 4.0);
+  const t5 = buildNear(g2, 'T05', e, 6.0, TOWER_BY_ID.T05.range + 0.1);
   g2.step(1);
   assert.equal(e.revealed, true, '6.0 格內顯形');
-  assert.equal(t5.target, null, '偵測範圍外不攻擊（攻擊射程 3.0）');
+  assert.equal(t5.target, null, '偵測範圍內、攻擊射程外只顯形不攻擊');
   // 讓敵人向前移出偵測範圍
   e.baseSpeed = 5;
   let leftAt = null;
@@ -145,6 +145,17 @@ test('範圍攻擊傷害未顯形隱形敵人但不使其顯形；只有 T05 6.0
   }
   assert.ok(leftAt !== null);
   assert.equal(g2.tick - leftAt, 2 * TICKS_PER_SEC - 1, '離開後 2 秒重新隱形');
+});
+
+test('T05 在擴大的 4–4.5 格射程內可攻擊並減速隱形地面敵人', () => {
+  const g = rich();
+  const e = frozen(g, 'E06', 20);
+  const tower = buildNear(g, 'T05', e, 4.5, 4.0);
+  g.step(1);
+  assert.equal(e.revealed, true);
+  assert.equal(tower.target, e);
+  assert.equal(e.hp, e.maxHp - tower.def.damage);
+  assert.equal(g.slowFactor(e), 0.25);
 });
 
 test('T05 對地減速 25%、T11 空地減速 30%；減速不疊加取最強（Q5）', () => {
