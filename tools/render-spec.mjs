@@ -104,6 +104,6 @@ for (const t of [...TRACKS, MENU_TRACK]) {
   const tone = `${t.lead.wave}${t.lead.duty ? ` ${t.lead.duty * 100}%` : ''}${t.lead.distortion ? ' 失真' : ''}`;
   c.push(`| ${t.id} | ${t.mapId ?? '首頁／地圖選擇'} | ${t.title} | ${t.bpm} | ${t.bars} | ${loopSeconds(t).toFixed(1)} | ${t.root} | ${names(t.motif)} | ${t.motif.steps.join('-')} | ${tone} | \`${t.drums.k}\` | \`${t.drums.s}\` | ${t.identity} |`);
 }
-c.push('', '`BGM-MENU` 為首頁與地圖選擇共用的選單曲，不計入 20 首地圖曲；兩個畫面間切換不會重新開始播放。', '');
+c.push('', '`BGM-MENU` 為首頁與地圖選擇共用的選單曲，不計入 20 首地圖曲；兩個畫面間切換不會重新開始播放。首頁載入即嘗試播放；瀏覽器要求使用者操作時，首頁顯示提示，首次點擊或按鍵後開始。', '');
 writeFileSync(new URL('../docs/附錄C_音樂音序.md', import.meta.url), c.join('\n'));
 console.log('已更新 docs/附錄A_地圖資料.md、docs/附錄B_波次編成.md、docs/附錄C_音樂音序.md');

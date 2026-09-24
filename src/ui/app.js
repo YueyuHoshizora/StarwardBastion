@@ -58,7 +58,21 @@ export class App {
     this.buildMapGrid();
     this.bind();
     this.syncAudioButtons();
+    // 首頁載入即嘗試播放選單曲：瀏覽器允許自動播放時立即發聲，否則等第一次點擊或按鍵（見 bind）。
+    this.audio.onstatechange = () => this.syncAudioHint();
+    this.audio.unlock();
+    this.audio.playMenu();
+    this.syncAudioHint();
     requestAnimationFrame((t) => this.frame(t));
+  }
+
+  onMenu() {
+    return $('#screen-title').classList.contains('active') || $('#screen-select').classList.contains('active');
+  }
+
+  /** 首頁提示：音訊尚未能發聲（瀏覽器等待使用者操作）時顯示。 */
+  syncAudioHint() {
+    $('#audio-hint').hidden = this.audio.running;
   }
 
   show(id) {
@@ -126,18 +140,22 @@ export class App {
   }
 
   bind() {
-    // 首頁：瀏覽器需使用者操作才能發聲，首次點擊或按鍵即開始播放選單曲（與地圖選擇共用）。
-    const titleGesture = () => {
-      if (!$('#screen-title').classList.contains('active')) return;
+    // 首頁與地圖選擇：瀏覽器需使用者操作才能發聲；任何點擊或按鍵都恢復 AudioContext 並播放選單曲（兩頁共用、不中斷）。
+    // 以捕獲階段監聽，確保在按鈕自身的處理（例如 M 鍵切換音樂）之前完成解鎖；click／touchend 涵蓋只認這些事件為使用者操作的瀏覽器。
+    const menuGesture = () => {
+      if (!this.onMenu()) return;
       this.audio.unlock();
       this.audio.playMenu();
     };
-    window.addEventListener('pointerdown', titleGesture);
-    window.addEventListener('keydown', titleGesture);
-    $('#btn-start').addEventListener('click', () => {
-      this.audio.unlock();
-      this.show('screen-select');
-    });
+    for (const type of ['pointerdown', 'keydown', 'click', 'touchend']) window.addEventListener(type, menuGesture, true);
+    // 首頁與地圖選擇的按鈕點擊音效：地圖卡為確認音，其餘按鈕為點擊音。
+    for (const id of ['#screen-title', '#screen-select']) {
+      $(id).addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (b) this.audio.sfx(b.classList.contains('map-card') ? 'confirm' : 'click');
+      });
+    }
+    $('#btn-start').addEventListener('click', () => this.show('screen-select'));
     $('#btn-wave').addEventListener('click', () => this.startWave());
     $('#info').addEventListener('click', (e) => {
       if (e.target.closest('#btn-upgrade')) this.upgradeSelected();

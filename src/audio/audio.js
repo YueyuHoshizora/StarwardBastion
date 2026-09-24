@@ -21,12 +21,16 @@ export class AudioEngine {
     this.shapers = new Map();
   }
 
-  /** 首次使用者點擊後建立／恢復 AudioContext（瀏覽器自動播放政策）。 */
+  /**
+   * 建立／恢復 AudioContext。瀏覽器自動播放政策下，未經使用者操作建立的 AudioContext 會停在 suspended，
+   * 需在點擊或按鍵的處理函式中再次呼叫本方法恢復；允許自動播放（例如已安裝的 PWA）時載入即可發聲。
+   */
   unlock() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       this.ctx = new AC();
+      this.ctx.addEventListener('statechange', () => this.onstatechange?.());
       this.master = this.ctx.createDynamicsCompressor();
       this.master.threshold.value = -12;
       this.master.connect(this.ctx.destination);
@@ -38,11 +42,16 @@ export class AudioEngine {
       this.sfxGain.connect(this.master);
       this.noise = this.makeNoise();
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') this.ctx.resume()?.catch?.(() => {});
   }
 
   get ready() {
     return !!this.ctx;
+  }
+
+  /** 目前實際能發聲（AudioContext 執行中）。 */
+  get running() {
+    return this.ctx?.state === 'running';
   }
 
   setMusic(on) {
@@ -357,6 +366,13 @@ export class AudioEngine {
         break;
       case 'deny':
         this.tone(sq, 45, t, 0.08, 0.1, 0, d);
+        break;
+      case 'click':
+        this.tone(p25, 84, t, 0.03, 0.08, 0, d);
+        this.tone(p25, 91, t + 0.03, 0.04, 0.07, 0, d);
+        break;
+      case 'confirm':
+        [67, 74, 79, 86].forEach((n, i) => this.tone(sq, n, t + i * 0.045, i === 3 ? 0.14 : 0.05, 0.11, 0, d));
         break;
       case 'win':
         [72, 76, 79, 84, 79, 84, 88].forEach((n, i) => this.tone(sq, n, t + i * 0.11, i === 6 ? 0.6 : 0.1, 0.14, 0, d));
