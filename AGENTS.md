@@ -40,6 +40,8 @@
 | `tests/` | `node:test` 規格測試（Gate A）與模擬測試 |
 | `tools/` | 波次產生、文件產生、靜態伺服器、平衡模擬 |
 | `docs/` | 規格提案與附錄（由工具產生）、各類報告 |
+| `DESIGN.md` | 數值設計紀錄（由 `npm run spec:docs` 自資料模組產生） |
+| `ACCEPTANCE.md` | 驗收項目與逐項結果（Gate A／B／C） |
 
 ## 指令
 
@@ -62,5 +64,5 @@ node tools/serve.mjs     # 本機伺服器 http://localhost:8080
 ## Git
 
 - 儲存庫：`https://github.com/YueyuHoshizora/StarwardBastion.git`，分支為 `main`。
-- **每個階段結束都要提交一次，提交訊息使用繁體中文**，並推送到 `origin`。
+- **依任務分次提交，不要一次提交一大包檔案**：每完成一項獨立任務（一個模組、一份文件、一個修正）就提交一次，提交訊息使用繁體中文，並推送到 `origin`。
 - 授權條款為 AGPL-3.0（見 `LICENSE`）。
