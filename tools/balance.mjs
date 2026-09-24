@@ -42,18 +42,24 @@ function samples(game, layer) {
  */
 function bestSpot(game, towerId, cache) {
   const def = TOWER_BY_ID[towerId];
-  const key = def.target;
-  cache[key] ??= samples(game, def.target);
+  // T05 以 6.0 格偵測半徑覆蓋地面路線（隱形敵人皆為地面）為主要評分，只與其他 T05 比較重疊。
+  const detect = !!def.detectRadius;
+  const key = detect ? 'ground' : def.target;
+  cache[key] ??= samples(game, key);
   const pts = cache[key];
   const cover = pts.map(([px, py]) => {
     let n = 0;
     for (const t of game.towers) {
+      if (detect) {
+        if (t.def.detectRadius && (px - t.cx) ** 2 + (py - t.cy) ** 2 <= t.def.detectRadius ** 2) n++;
+        continue;
+      }
       if (t.def.target !== 'both' && def.target !== 'both' && t.def.target !== def.target) continue;
       if ((px - t.cx) ** 2 + (py - t.cy) ** 2 <= t.def.range ** 2) n++;
     }
     return n;
   });
-  const r = def.range;
+  const r = detect ? def.detectRadius : def.range;
   let best = null;
   for (let y = 0; y < 15; y++) {
     for (let x = 0; x < 27; x++) {
@@ -91,13 +97,15 @@ export function runConfig(mapId, cfg) {
   const startCr = g.cr;
   const rows = [];
   let status10 = null;
-  // 決定下一座塔：先確保有 T05 對付即將出現的隱形；再依下一波空／地 HP 比例補足投資較少的一側。
+  // 回饋：上一波有隱形漏怪就多蓋一座 T05（最多 4 座）；空中漏怪則提高對空投資比例。
+  const adapt = { t05: 1, airBias: 0 };
+  // 決定下一座塔：先確保 T05 數量足以對付即將出現的隱形；再依下一波空／地 HP 比例（加上回饋偏移）補足投資較少的一側。
   const pick = (prof) => {
     if (cfg.single) return cfg.ground[0];
-    if (prof.stealth && !g.towers.some((t) => t.id === 'T05')) return 'T05';
+    if (prof.stealth && g.towers.filter((t) => t.id === 'T05').length < adapt.t05) return 'T05';
     const total = prof.ground + prof.air || 1;
     const investTotal = invest.ground + invest.air || 1;
-    const layer = prof.air > 0 && invest.air / investTotal < prof.air / total ? 'air' : 'ground';
+    const layer = prof.air > 0 && invest.air / investTotal < Math.min(0.9, prof.air / total + adapt.airBias) ? 'air' : 'ground';
     return cfg[layer][idx[layer] % cfg[layer].length];
   };
   const buildPhase = (n) => {
@@ -124,7 +132,17 @@ export function runConfig(mapId, cfg) {
     g.startWave();
     const n = g.wave;
     buildPhase(n);
-    while (!g.result && !(g.spawnsDone && g.enemies.length === 0)) g.step(60);
+    const leakedBy = { stealth: 0, air: 0 };
+    while (!g.result && !(g.spawnsDone && g.enemies.length === 0)) {
+      g.step(60);
+      for (const ev of g.drainEvents()) {
+        if (ev.type !== 'baseHit') continue;
+        if (ev.enemy.stealth) leakedBy.stealth++;
+        if (ev.enemy.layer === 'air') leakedBy.air++;
+      }
+    }
+    if (leakedBy.stealth) adapt.t05 = Math.min(4, adapt.t05 + 1);
+    if (leakedBy.air) adapt.airBias = Math.min(0.4, adapt.airBias + 0.1);
     cum.income = startCr + g.stats.earned + g.stats.stipend;
     rows.push({
       wave: n,
@@ -153,7 +171,7 @@ function report(all) {
   p();
   p('## 測試方法');
   p();
-  p('- 機器人只在波次之間操作：場上敵人清空後建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。\n- 選塔：下一波含隱形且尚無 T05 時先建 T05；其餘依下一波空中／地面總 HP 比例，補足投資較少的一側。\n- 位置：射程內路線取樣點的邊際覆蓋最高處（越近基地權重越高、已被覆蓋的點權重遞減）。');
+  p('- 機器人只在波次之間操作：場上敵人清空後建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。\n- 選塔：下一波含隱形且 T05 數量不足時先建 T05；其餘依下一波空中／地面總 HP 比例，補足投資較少的一側。\n- 回饋：上一波有隱形漏怪就把 T05 目標數加 1（最多 4 座，以 6.0 格偵測覆蓋地面路線選位）；有空中漏怪則對空投資比例提高 10%（最多 +40%）。\n- 位置：射程內路線取樣點的邊際覆蓋最高處（越近基地權重越高、已被覆蓋的點權重遞減）。');
   p('- 配置：');
   for (const c of CONFIGS) p(`  - **${c.id} ${c.name}**：${c.single ? `只建 ${c.ground[0]}` : `對地循環 ${c.ground.join('→')}；對空循環 ${c.air.join('→')}`}`);
   p('- 割草風險判定（Gate B）：每個星級至少要有 1 張地圖**不能**以單一塔種（S1／S2）且不操作就無漏怪通關。');
@@ -183,6 +201,9 @@ function report(all) {
   }
   p();
   const winnable = all.filter((x) => x.runs.some((r) => r.result === 'WIN'));
+  const bestHp = all.map((x) => ({ id: x.map.id, hp: Math.max(...x.runs.map((r) => (r.result === 'WIN' ? r.baseHp : -1))) }));
+  const low = bestHp.filter((x) => x.hp < 16);
+  p(`- 每張地圖最佳配置的基地剩餘生命（目標 ≥16，即 80%）：最低 ${Math.min(...bestHp.map((x) => x.hp))}；${low.length ? `**未達標：${low.map((x) => `${x.id}（${x.hp}）`).join('、')}**` : '全部達標'}`);
   p(`- 至少一種配置可通關的地圖：${winnable.length}／${all.length}${winnable.length < all.length ? `（無法通關：${all.filter((x) => !winnable.includes(x)).map((x) => x.map.id).join('、')}）` : ''}`);
   p();
   p('## 逐圖逐配置紀錄');
