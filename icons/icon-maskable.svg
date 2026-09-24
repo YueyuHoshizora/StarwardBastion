@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>星域防線 Starward Bastion（maskable）</title>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0" stop-color="#1b2d55"/>
+      <stop offset="1" stop-color="#070b16"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#8fe8ff"/>
+      <stop offset="1" stop-color="#1d8fd0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fe8ff"/>
+      <stop offset="1" stop-color="#c59bff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(51.2 51.2) scale(0.8)">
+  
+  <!-- 空中航道：懸空虛線與投影 -->
+  <path d="M60 150 L200 150 L256 206" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="12" stroke-dasharray="26 18" transform="translate(8 12)"/>
+  <path d="M60 150 L200 150 L256 206" fill="none" stroke="#e9f3ff" stroke-width="10" stroke-linecap="round" stroke-dasharray="26 18"/>
+  <!-- 地面道路 -->
+  <path d="M60 380 L180 380 L180 300 L256 300 L256 256" fill="none" stroke="#9fb0d0" stroke-width="54" stroke-linejoin="miter"/>
+  <path d="M60 380 L180 380 L180 300 L256 300 L256 256" fill="none" stroke="#35425f" stroke-width="44" stroke-linejoin="miter"/>
+  <!-- 能源核心基地（六角） -->
+  <polygon points="256,126 368.6,191 368.6,321 256,386 143.4,321 143.4,191" fill="#0c1a2e" stroke="url(#rim)" stroke-width="16" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="68" fill="url(#core)"/>
+  <circle cx="256" cy="256" r="28" fill="#ffffff"/>
+  <!-- 防禦塔：T01 脈衝機砲輪廓 -->
+  <g transform="translate(378 378)">
+    <rect x="-66" y="-66" width="132" height="132" rx="16" fill="#1b2336" stroke="#3a4a6a" stroke-width="5"/>
+    <circle r="48" fill="#141a2b" stroke="#7fd3ff" stroke-width="8"/>
+    <rect x="0" y="-9" width="62" height="18" rx="4" fill="#7fd3ff" transform="rotate(-135)"/>
+    <circle r="18" fill="#7fd3ff"/>
+  </g>
+  <!-- 星芒 -->
+  <path d="M400 88 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10z" fill="#ffd76b"/>
+</g>
+</svg>
