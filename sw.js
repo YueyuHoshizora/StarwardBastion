@@ -1,6 +1,6 @@
 // Service Worker：預先快取全部遊戲檔案，支援離線遊玩（PWA）。
 // 更新任何遊戲檔案後須提高 VERSION；tests/pwa.test.mjs 會檢查 PRECACHE 涵蓋所有執行期檔案。
-const VERSION = 'sb-v4';
+const VERSION = 'sb-v5';
 const PRECACHE = [
   './',
   'index.html',
