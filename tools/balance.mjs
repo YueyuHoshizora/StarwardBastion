@@ -1,19 +1,23 @@
 // Gate B 可重現平衡測試：每張地圖執行多種建塔配置，逐波記錄漏怪、收入、支出與通關狀態，輸出 docs/平衡測試報告.md。
-// 機器人只在波次之間操作：場上清空後，依配置順序把可負擔的塔放到覆蓋路線最多的位置，再開始下一波；波次中不操作。
+// 機器人只在波次之間操作：場上清空後建塔、開波並以津貼再建塔；波次進行中不操作。
+// 選塔：隱形將出現時先補 T05；再依下一波空／地 HP 比例補足投資較少的一側；位置取邊際覆蓋最高處。
 // 用法：node tools/balance.mjs [--json]
 import { writeFileSync } from 'node:fs';
 import { MAPS } from '../src/data/maps.js';
 import { TOWER_BY_ID } from '../src/data/towers.js';
 import { Game } from '../src/core/game.js';
 import { canPlaceTower } from '../src/core/mapgeom.js';
+import { WAVES } from '../src/data/waves.js';
+import { ENEMY_BY_ID } from '../src/data/enemies.js';
+import { scaledHp } from '../src/data/difficulty.js';
 
 export const CONFIGS = [
-  { id: 'C1', name: '混合均衡', order: ['T01', 'T07', 'T05', 'T03', 'T01', 'T07', 'T06', 'T10', 'T02', 'T09', 'T12', 'T04', 'T08', 'T11'], loop: ['T02', 'T07', 'T06', 'T09', 'T12', 'T03', 'T08', 'T04', 'T10'] },
-  { id: 'C2', name: '低價密集', order: ['T01', 'T07', 'T05', 'T01', 'T07'], loop: ['T01', 'T07', 'T01', 'T01', 'T07'] },
-  { id: 'C3', name: '範圍控制', order: ['T01', 'T07', 'T05', 'T03', 'T11', 'T09'], loop: ['T03', 'T09', 'T06', 'T11', 'T02', 'T08'] },
-  { id: 'S1', name: '單塔種 T10', single: true, order: [], loop: ['T10'] },
-  { id: 'S2', name: '單塔種 T12', single: true, order: [], loop: ['T12'] },
-];
+  { id: 'C1', name: '混合均衡', ground: ['T01', 'T03', 'T01', 'T06', 'T02', 'T10', 'T04', 'T12'], air: ['T07', 'T09', 'T07', 'T08'] },
+  { id: 'C2', name: '低價密集', ground: ['T01'], air: ['T07'] },
+  { id: 'C3', name: '範圍控制', ground: ['T01', 'T03', 'T06', 'T11', 'T03', 'T02'], air: ['T07', 'T09', 'T08'] },
+  { id: 'S1', name: '單塔種 T10', single: true, ground: ['T10'], air: [] },
+  { id: 'S2', name: '單塔種 T12', single: true, ground: ['T12'], air: [] },
+]
 
 /** 取樣路線點（每 0.5 格）作為覆蓋評分依據；越接近基地權重越高。 */
 function samples(game, layer) {
@@ -32,11 +36,23 @@ function samples(game, layer) {
   return out;
 }
 
+/**
+ * 邊際覆蓋評分：取樣點權重除以（1＋已覆蓋該點的同類塔數），讓塔分散到尚未被防守的路線，
+ * 模擬玩家「補防薄弱路段」的直覺，而不是全部疊在同一處。
+ */
 function bestSpot(game, towerId, cache) {
   const def = TOWER_BY_ID[towerId];
   const key = def.target;
   cache[key] ??= samples(game, def.target);
   const pts = cache[key];
+  const cover = pts.map(([px, py]) => {
+    let n = 0;
+    for (const t of game.towers) {
+      if (t.def.target !== 'both' && def.target !== 'both' && t.def.target !== def.target) continue;
+      if ((px - t.cx) ** 2 + (py - t.cy) ** 2 <= t.def.range ** 2) n++;
+    }
+    return n;
+  });
   const r = def.range;
   let best = null;
   for (let y = 0; y < 15; y++) {
@@ -45,40 +61,71 @@ function bestSpot(game, towerId, cache) {
       const cx = x + 1;
       const cy = y + 1;
       let score = 0;
-      for (const [px, py, w] of pts) if ((px - cx) ** 2 + (py - cy) ** 2 <= r * r) score += w;
+      pts.forEach(([px, py, w], i) => {
+        if ((px - cx) ** 2 + (py - cy) ** 2 <= r * r) score += w / (1 + cover[i]);
+      });
       if (!best || score > best.score) best = { x, y, score };
     }
   }
   return best && best.score > 0 ? best : null;
 }
 
+/** 本波各層級總 HP（含護盾）與是否含隱形，作為機器人分配對空／對地投資的依據（玩家可見的敵人資訊）。 */
+function waveProfile(g, n) {
+  const out = { ground: 0, air: 0, stealth: false };
+  if (n > 20) return out;
+  for (const [id, c] of WAVES[g.mapId][n - 1]) {
+    const e = ENEMY_BY_ID[id];
+    out[e.layer] += (scaledHp(e.hp, g.star, n) + scaledHp(e.shield, g.star, n)) * c;
+    if (e.category === 'stealth') out.stealth = true;
+  }
+  return out;
+}
+
 export function runConfig(mapId, cfg) {
   const g = new Game(mapId);
   const cache = {};
-  let k = 0;
-  const nextTower = () => (k < cfg.order.length ? cfg.order[k] : cfg.loop[(k - cfg.order.length) % cfg.loop.length]);
+  const idx = { ground: 0, air: 0 };
+  const invest = { ground: 0, air: 0 };
   const cum = { income: g.cr, spent: 0 };
+  const startCr = g.cr;
   const rows = [];
   let status10 = null;
-  while (!g.result) {
-    // 波次之間：盡量建塔
-    for (;;) {
-      const id = nextTower();
+  // 決定下一座塔：先確保有 T05 對付即將出現的隱形；再依下一波空／地 HP 比例補足投資較少的一側。
+  const pick = (prof) => {
+    if (cfg.single) return cfg.ground[0];
+    if (prof.stealth && !g.towers.some((t) => t.id === 'T05')) return 'T05';
+    const total = prof.ground + prof.air || 1;
+    const investTotal = invest.ground + invest.air || 1;
+    const layer = prof.air > 0 && invest.air / investTotal < prof.air / total ? 'air' : 'ground';
+    return cfg[layer][idx[layer] % cfg[layer].length];
+  };
+  const buildPhase = (n) => {
+    const prof = waveProfile(g, n);
+    for (let guard = 0; guard < 40; guard++) {
+      const id = pick(prof);
       if (g.cr < TOWER_BY_ID[id].cost) break;
       const s = bestSpot(g, id, cache);
-      if (!s) {
-        k++;
-        if (k > cfg.order.length + cfg.loop.length * 3) break;
-        continue;
-      }
+      const layer = TOWER_BY_ID[id].target === 'air' ? 'air' : 'ground';
+      if (id !== 'T05' || !prof.stealth) idx[layer]++;
+      if (!s) continue;
       g.build(id, s.x, s.y);
-      k++;
+      const t = TOWER_BY_ID[id].target;
+      if (t === 'both') {
+        invest.ground += TOWER_BY_ID[id].cost / 2;
+        invest.air += TOWER_BY_ID[id].cost / 2;
+      } else invest[t] += TOWER_BY_ID[id].cost;
     }
+  };
+  while (!g.result) {
+    // 波次之間（場上清空）：建塔 → 開波 → 以剛發放的津貼再建塔；波次進行中不操作。
+    buildPhase(g.wave + 1);
     const before = { leaks: g.stats.leaks, earned: g.stats.earned, stipend: g.stats.stipend, spent: g.stats.spent };
     g.startWave();
     const n = g.wave;
+    buildPhase(n);
     while (!g.result && !(g.spawnsDone && g.enemies.length === 0)) g.step(60);
-    cum.income = 240 + g.stats.earned + g.stats.stipend;
+    cum.income = startCr + g.stats.earned + g.stats.stipend;
     rows.push({
       wave: n,
       leaks: g.stats.leaks - before.leaks,
@@ -106,9 +153,9 @@ function report(all) {
   p();
   p('## 測試方法');
   p();
-  p('- 機器人只在波次之間操作：場上敵人清空後，依配置順序把資源允許的塔放在「射程內路線取樣點最多（越近基地權重越高）」的位置，再開始下一波；波次進行中不操作。');
+  p('- 機器人只在波次之間操作：場上敵人清空後建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。\n- 選塔：下一波含隱形且尚無 T05 時先建 T05；其餘依下一波空中／地面總 HP 比例，補足投資較少的一側。\n- 位置：射程內路線取樣點的邊際覆蓋最高處（越近基地權重越高、已被覆蓋的點權重遞減）。');
   p('- 配置：');
-  for (const c of CONFIGS) p(`  - **${c.id} ${c.name}**：${c.order.length ? `開局 ${c.order.join('→')}，之後循環 ` : '只建 '}${c.loop.join('→')}`);
+  for (const c of CONFIGS) p(`  - **${c.id} ${c.name}**：${c.single ? `只建 ${c.ground[0]}` : `對地循環 ${c.ground.join('→')}；對空循環 ${c.air.join('→')}`}`);
   p('- 割草風險判定（Gate B）：每個星級至少要有 1 張地圖**不能**以單一塔種（S1／S2）且不操作就無漏怪通關。');
   p();
   p('## 總表');
