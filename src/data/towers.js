@@ -57,3 +57,11 @@ export const TOWER_LEVELS = Object.fromEntries(TOWERS.map((t) => {
   });
   return [t.id, defs];
 }));
+
+// 移動與出售（使用者追加需求）：已建造的塔可隨時移到其他合法位置（保留等級與冷卻、不停機），或隨時出售。
+// 移動費與出售退款皆以該塔累計投資（造價＋升級費）的百分比計算，四捨五入至 10 CR；移動費不計入累計投資。
+export const RELOCATE_COST_PERCENT = 30;
+export const SELL_REFUND_PERCENT = 70;
+const percentOfInvested = (invested, pct) => Math.round((invested * pct) / 1000) * 10;
+export const relocateCost = (invested) => percentOfInvested(invested, RELOCATE_COST_PERCENT);
+export const sellRefund = (invested) => percentOfInvested(invested, SELL_REFUND_PERCENT);

@@ -1,7 +1,7 @@
 // 核心模擬：決定性固定步長（1/60 秒），不依賴 DOM，瀏覽器與 Node 共用。
 // 所有計時以整數 tick 計算；倍速只改變每個畫面推進的 tick 數（R11）。
 import { MAP_BY_ID } from '../data/maps.js';
-import { TOWER_BY_ID, TOWER_LEVELS, TOWER_SIZE } from '../data/towers.js';
+import { TOWER_BY_ID, TOWER_LEVELS, TOWER_SIZE, relocateCost, sellRefund } from '../data/towers.js';
 import { ENEMY_BY_ID } from '../data/enemies.js';
 import { BASE_HP, START_CR, WAVE_STIPEND_CR, WAVES_PER_MAP, scaledHp, scaledSpeed } from '../data/difficulty.js';
 import { buildMap, canPlaceTower, cellKey } from './mapgeom.js';
@@ -78,8 +78,8 @@ export class Game {
     this.result = null; // 'WIN' | 'LOSE'
     this.snapshot = null;
     this.uid = 0;
-    this.stats = { kills: 0, leaks: 0, towersBuilt: 0, towerTypes: new Set(), spent: 0, earned: 0, stipend: 0 };
-    this.waveLog = []; // 每波：{ wave, leaks, kills, earned, spent }
+    this.stats = { kills: 0, leaks: 0, towersBuilt: 0, towerTypes: new Set(), spent: 0, earned: 0, stipend: 0, relocations: 0, sold: 0, refunded: 0 };
+    this.waveLog = []; // 每波：{ wave, leaks, kills, earned, stipend, spent, refunded }
   }
 
   // ---------- 玩家操作 ----------
@@ -97,7 +97,7 @@ export class Game {
     if (!canPlaceTower(this.map, x, y, this.occupied)) return { ok: false, reason: 'blocked' };
     if (this.cr < t.cost) return { ok: false, reason: 'funds' };
     this.cr -= t.cost;
-    for (let oy = 0; oy < TOWER_SIZE; oy++) for (let ox = 0; ox < TOWER_SIZE; ox++) this.occupied.add(cellKey(x + ox, y + oy));
+    this.occupy(x, y, true);
     const tower = {
       uid: ++this.uid, id: towerId, def: TOWER_LEVELS[towerId][0], level: 1, invested: t.cost, x, y, cx: x + TOWER_SIZE / 2, cy: y + TOWER_SIZE / 2,
       cooldown: 0, target: null, angle: -Math.PI / 2, beamTicks: 0, firedAt: -1,
@@ -129,6 +129,69 @@ export class Game {
     return { ok: true, tower };
   }
 
+  /** 出售退款：依該塔累計投資計算。 */
+  sellRefund(tower) {
+    return sellRefund(tower.invested);
+  }
+
+  /** 出售已建造的塔：立即退款並釋放佔地；已發射的投射物照常結算。 */
+  sell(tower) {
+    if (this.result) return { ok: false, reason: 'ended' };
+    const i = this.towers.indexOf(tower);
+    if (i < 0) return { ok: false, reason: 'unknown' };
+    const refund = this.sellRefund(tower);
+    this.towers.splice(i, 1);
+    this.occupy(tower.x, tower.y, false);
+    this.cr += refund;
+    this.stats.sold++;
+    this.stats.refunded += refund;
+    this.curLog().refunded += refund;
+    this.events.push({ type: 'sell', tower, refund });
+    return { ok: true, tower, refund };
+  }
+
+  /** 移動費：依該塔累計投資計算。 */
+  relocateCost(tower) {
+    return relocateCost(tower.invested);
+  }
+
+  /** 塔可否移到左上角 (x, y)：新位置可與自己原佔地重疊，但不能是原位。 */
+  canRelocate(tower, x, y) {
+    if (this.result || !this.towers.includes(tower) || (tower.x === x && tower.y === y)) return false;
+    this.occupy(tower.x, tower.y, false);
+    const ok = canPlaceTower(this.map, x, y, this.occupied);
+    this.occupy(tower.x, tower.y, true);
+    return ok;
+  }
+
+  /** 移動已建造的塔；回傳 { ok, reason }。保留等級、冷卻與鎖定狀態（不停機）；位置不合法或資源不足時拒絕且不扣款。 */
+  relocate(tower, x, y) {
+    if (this.result) return { ok: false, reason: 'ended' };
+    if (!this.towers.includes(tower)) return { ok: false, reason: 'unknown' };
+    if (!this.canRelocate(tower, x, y)) return { ok: false, reason: 'blocked' };
+    const cost = this.relocateCost(tower);
+    if (this.cr < cost) return { ok: false, reason: 'funds' };
+    this.cr -= cost;
+    const from = { x: tower.x, y: tower.y };
+    this.occupy(tower.x, tower.y, false);
+    this.occupy(x, y, true);
+    Object.assign(tower, { x, y, cx: x + TOWER_SIZE / 2, cy: y + TOWER_SIZE / 2 });
+    this.stats.relocations++;
+    this.stats.spent += cost;
+    this.curLog().spent += cost;
+    this.events.push({ type: 'relocate', tower, from, cost });
+    return { ok: true, tower, cost };
+  }
+
+  occupy(x, y, on) {
+    for (let oy = 0; oy < TOWER_SIZE; oy++) {
+      for (let ox = 0; ox < TOWER_SIZE; ox++) {
+        if (on) this.occupied.add(cellKey(x + ox, y + oy));
+        else this.occupied.delete(cellKey(x + ox, y + oy));
+      }
+    }
+  }
+
   get spawnsDone() {
     return this.pending.length === 0;
   }
@@ -145,7 +208,7 @@ export class Game {
       this.cr += WAVE_STIPEND_CR;
       this.stats.stipend += WAVE_STIPEND_CR;
     }
-    this.waveLog.push({ wave: this.wave, leaks: 0, kills: 0, earned: 0, stipend: this.wave >= 2 ? WAVE_STIPEND_CR : 0, spent: 0 });
+    this.waveLog.push({ wave: this.wave, leaks: 0, kills: 0, earned: 0, stipend: this.wave >= 2 ? WAVE_STIPEND_CR : 0, spent: 0, refunded: 0 });
     this.pending = buildSpawnSchedule(this.map, this.mapId, this.wave).map((s) => ({ ...s, at: this.tick + sec(s.time) }));
     this.events.push({ type: 'waveStart', wave: this.wave });
     this.spawnDue();
@@ -153,7 +216,7 @@ export class Game {
   }
 
   curLog() {
-    return this.waveLog[this.waveLog.length - 1] ?? (this.preLog ??= { wave: 0, leaks: 0, kills: 0, earned: 0, stipend: 0, spent: 0 });
+    return this.waveLog[this.waveLog.length - 1] ?? (this.preLog ??= { wave: 0, leaks: 0, kills: 0, earned: 0, stipend: 0, spent: 0, refunded: 0 });
   }
 
   // ---------- 模擬 ----------

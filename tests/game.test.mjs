@@ -253,6 +253,80 @@ test('升級：Lv1→Lv3 扣升級費、傷害與射程提升並實際生效；�
   assert.ok(lv3.damage > lv1.damage);
 });
 
+test('移動：費用為累計投資 30%（四捨五入至 10 CR）；保留等級與冷卻、換位後立即生效；不合法或資源不足拒絕且不扣款', () => {
+  const g = new Game('M01');
+  const e = frozen(g, 'E03', 20);
+  const r = TOWER_LEVELS.T01[1].range;
+  const far = spotNear(g, e.x, e.y, 40, r + 3);
+  const t = g.build('T01', far.tx, far.ty).tower;
+  g.cr = 1000;
+  assert.ok(g.upgrade(t).ok);
+  assert.equal(t.invested, 190);
+  assert.equal(g.relocateCost(t), 60, '190 × 30% = 57 → 60');
+  g.step(1);
+  assert.equal(t.target, null);
+  const near = spotNear(g, e.x, e.y, r - 0.2);
+
+  g.cr = 59;
+  assert.equal(g.relocate(t, near.tx, near.ty).reason, 'funds');
+  assert.equal(g.relocate(t, far.tx, far.ty).reason, 'blocked', '不能移到原位');
+  g.cr = 1000;
+  assert.equal(g.relocate(t, 24, 12).reason, 'blocked', '基地格不可放');
+  assert.equal(g.cr, 1000);
+  assert.deepEqual([t.x, t.y], [far.tx, far.ty]);
+
+  t.cooldown = 5;
+  const spent = g.stats.spent;
+  assert.ok(g.relocate(t, near.tx, near.ty).ok);
+  assert.equal(g.cr, 940);
+  assert.equal(g.stats.spent, spent + 60);
+  assert.equal(t.invested, 190, '移動費不計入累計投資');
+  assert.deepEqual([t.x, t.y, t.cx, t.cy, t.level, t.cooldown], [near.tx, near.ty, near.tx + 1, near.ty + 1, 2, 5]);
+  assert.ok(canPlaceTower(g.map, far.tx, far.ty, g.occupied), '原位置釋放');
+  assert.ok(!canPlaceTower(g.map, near.tx, near.ty, g.occupied), '新位置佔用');
+  g.step(1);
+  assert.equal(t.target, e, '移動後不停機，立即鎖定');
+
+  // 可移到與自己原佔地重疊的相鄰位置
+  const shift = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [t.x + dx, t.y + dy]).find(([x, y]) => g.canRelocate(t, x, y));
+  assert.ok(shift, '前提：M01 有可重疊平移的位置');
+  assert.ok(g.relocate(t, ...shift).ok);
+  assert.equal(g.occupied.size, 4);
+
+  g.finish('LOSE');
+  assert.equal(g.relocate(t, near.tx, near.ty).reason, 'ended');
+});
+
+test('出售：退還累計投資（含升級費）70%（四捨五入至 10 CR）、釋放佔地；已發射的投射物照常結算', () => {
+  const g = new Game('M01');
+  g.cr = 1000;
+  const s = spotNear(g, 5, 5, 20);
+  const t = g.build('T12', s.tx, s.ty).tower;
+  assert.equal(g.sellRefund(t), 250, '360 × 70% = 252 → 250');
+  assert.ok(g.upgrade(t).ok);
+  assert.equal(t.invested, 580);
+  const cr = g.cr;
+  const r = g.sell(t);
+  assert.equal(r.refund, 410, '580 × 70% = 406 → 410');
+  assert.equal(g.cr, cr + 410);
+  assert.equal(g.stats.refunded, 410);
+  assert.ok(!g.towers.includes(t));
+  assert.equal(g.occupied.size, 0);
+  assert.equal(g.sell(t).reason, 'unknown');
+  assert.ok(g.build('T01', s.tx, s.ty).ok, '原位置可再建');
+
+  const h = new Game('M01');
+  const e = frozen(h, 'E03', 20);
+  const gun = buildNear(h, 'T01', e);
+  while (!h.projectiles.length) h.step(1);
+  const hp = e.hp;
+  assert.ok(h.sell(gun).ok);
+  h.step(60);
+  assert.equal(hp - e.hp, TOWER_BY_ID.T01.damage, '出售前射出的子彈仍命中，之後不再開火');
+  h.finish('LOSE');
+  assert.equal(h.sell(h.towers[0] ?? gun).reason, 'ended');
+});
+
 test('T03 預判落點：命中移動中的極速敵人（E11 在 0.6 秒飛行時間內移動超過爆炸半徑）', () => {
   const g = rich();
   const route = g.map.routes.find((r) => r.layer === 'ground').id;
