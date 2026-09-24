@@ -5,6 +5,6 @@
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
     "spec:waves": "node tools/generate-waves.mjs",
-    "spec:docs": "node tools/render-spec.mjs"
+    "spec:docs": "node tools/render-spec.mjs && node tools/render-design.mjs"
   }
 }
