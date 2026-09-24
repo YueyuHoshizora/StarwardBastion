@@ -116,7 +116,20 @@ export function runConfig(mapId, cfg) {
       const s = bestSpot(g, id, cache);
       const layer = TOWER_BY_ID[id].target === 'air' ? 'air' : 'ground';
       if (id !== 'T05' || !prof.stealth) idx[layer]++;
-      if (!s) continue;
+      if (!s) {
+        // 沒有能覆蓋路線的空位時改為升級：優先等級最低、再以升級費最低者（同塔種優先）
+        const cand = g.towers.filter((t) => t.def.upgradeCost != null && t.def.upgradeCost <= g.cr)
+          .sort((a, b) => (a.id === id ? 0 : 1) - (b.id === id ? 0 : 1) || a.level - b.level || a.def.upgradeCost - b.def.upgradeCost)[0];
+        if (!cand) continue;
+        const cost = cand.def.upgradeCost;
+        g.upgrade(cand);
+        const ut = cand.def.target;
+        if (ut === 'both') {
+          invest.ground += cost / 2;
+          invest.air += cost / 2;
+        } else invest[ut] += cost;
+        continue;
+      }
       g.build(id, s.x, s.y);
       const t = TOWER_BY_ID[id].target;
       if (t === 'both') {
@@ -171,7 +184,7 @@ function report(all) {
   p();
   p('## 測試方法');
   p();
-  p('- 機器人只在波次之間操作：場上敵人清空後建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。\n- 選塔：下一波含隱形且 T05 數量不足時先建 T05；其餘依下一波空中／地面總 HP 比例，補足投資較少的一側。\n- 回饋：上一波有隱形漏怪就把 T05 目標數加 1（最多 4 座，以 6.0 格偵測覆蓋地面路線選位）；有空中漏怪則對空投資比例提高 10%（最多 +40%）。\n- 位置：射程內路線取樣點的邊際覆蓋最高處（越近基地權重越高、已被覆蓋的點權重遞減）。');
+  p('- 機器人只在波次之間操作：場上敵人清空後建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。\n- 選塔：下一波含隱形且 T05 數量不足時先建 T05；其餘依下一波空中／地面總 HP 比例，補足投資較少的一側。\n- 回饋：上一波有隱形漏怪就把 T05 目標數加 1（最多 4 座，以 6.0 格偵測覆蓋地面路線選位）；有空中漏怪則對空投資比例提高 10%（最多 +40%）。\n- 位置：射程內路線取樣點的邊際覆蓋最高處（越近基地權重越高、已被覆蓋的點權重遞減）。\n- 升級：選定的塔找不到能覆蓋路線的空位時，改升級等級最低的塔（同塔種優先、其次升級費最低）。');
   p('- 配置：');
   for (const c of CONFIGS) p(`  - **${c.id} ${c.name}**：${c.single ? `只建 ${c.ground[0]}` : `對地循環 ${c.ground.join('→')}；對空循環 ${c.air.join('→')}`}`);
   p('- 割草風險判定（Gate B）：每個星級至少要有 1 張地圖**不能**以單一塔種（S1／S2）且不操作就無漏怪通關。');
