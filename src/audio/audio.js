@@ -1,6 +1,6 @@
 // Web Audio 音訊引擎：20 首 8-bit 音序即時合成、事件音效、音樂／音效獨立靜音、暫停續播（R11、R13）。
 // 音樂時鐘獨立於遊戲倍速：只以 AudioContext 實際時間排程，倍速不改變音高或播放速度。
-import { TRACK_BY_MAP } from '../data/music.js';
+import { TRACK_BY_MAP, MENU_TRACK } from '../data/music.js';
 
 const LOOKAHEAD = 0.18; // 秒
 const TICK_MS = 25;
@@ -61,6 +61,15 @@ export class AudioEngine {
   playTrack(mapId) {
     this.stopMusic();
     this.track = TRACK_BY_MAP[mapId];
+    this.step = 0;
+    this.resumeMusic();
+  }
+
+  /** 首頁與地圖選擇共用的選單曲；已在播放時不重新開始，保持無縫。 */
+  playMenu() {
+    if (this.track === MENU_TRACK && this.playing) return;
+    this.stopMusic();
+    this.track = MENU_TRACK;
     this.step = 0;
     this.resumeMusic();
   }

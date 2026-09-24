@@ -50,7 +50,10 @@ export class App {
   show(id) {
     for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === id);
     this.hideTooltip();
-    if (id === 'screen-select') this.drawMapThumbs();
+    if (id === 'screen-select') {
+      this.drawMapThumbs();
+      if (this.audio.ready) this.audio.playMenu();
+    }
   }
 
   // ---------- 建構 ----------
@@ -109,6 +112,14 @@ export class App {
   }
 
   bind() {
+    // 首頁：瀏覽器需使用者操作才能發聲，首次點擊或按鍵即開始播放選單曲（與地圖選擇共用）。
+    const titleGesture = () => {
+      if (!$('#screen-title').classList.contains('active')) return;
+      this.audio.unlock();
+      this.audio.playMenu();
+    };
+    window.addEventListener('pointerdown', titleGesture);
+    window.addEventListener('keydown', titleGesture);
     $('#btn-start').addEventListener('click', () => {
       this.audio.unlock();
       this.show('screen-select');
@@ -177,7 +188,6 @@ export class App {
 
   backToMaps() {
     this.game = null;
-    this.audio.stopMusic();
     $('#result').hidden = true;
     this.show('screen-select');
   }
