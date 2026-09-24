@@ -98,6 +98,7 @@ kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4p
 .info dt { color: var(--dim); }
 .info dd { margin: 0; }
 .info .hint { color: var(--dim); }
+.info .upgrade-btn { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding: 6px; font-weight: 700; }
 
 /* 提示面板：位置由 JS 限制在視口內 */
 .tooltip {

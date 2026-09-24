@@ -1,6 +1,6 @@
 // 介面控制：畫面切換、對局迴圈、滑鼠與鍵盤操作、HUD、提示面板、結算與分享卡。
 import { MAPS, MAP_BY_ID } from '../data/maps.js';
-import { TOWERS, TOWER_BY_ID, TARGET_LABEL } from '../data/towers.js';
+import { TOWERS, TOWER_BY_ID, TOWER_LEVELS, MAX_LEVEL, TARGET_LABEL } from '../data/towers.js';
 import { WAVES_PER_MAP } from '../data/difficulty.js';
 import { Game, SimClock } from '../core/game.js';
 import { Scene, drawMapStatic, placementCell } from '../render/scene.js';
@@ -14,8 +14,10 @@ const KEY_TO_TOWER = { 1: 'T01', 2: 'T02', 3: 'T03', 4: 'T04', 5: 'T05', 6: 'T06
 const TOWER_KEY = Object.fromEntries(Object.entries(KEY_TO_TOWER).map(([k, v]) => [v, k]));
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
+const fmtRange = (r) => r.toFixed(2).replace(/0$/, '');
+
 function towerDetails(t) {
-  const range = t.detectRadius ? `攻擊 ${t.range.toFixed(1)} 格／偵測 ${t.detectRadius.toFixed(1)} 格` : `${t.range.toFixed(1)} 格`;
+  const range = t.detectRadius ? `攻擊 ${fmtRange(t.range)} 格／偵測 ${t.detectRadius.toFixed(1)} 格` : `${fmtRange(t.range)} 格`;
   return [
     ['造價', `${t.cost} CR`],
     ['目標', TARGET_LABEL[t.target] + (t.detectRadius ? '（偵測：空地）' : '')],
@@ -24,6 +26,18 @@ function towerDetails(t) {
     ['效果', t.effect],
     ['外觀', t.silhouette],
   ];
+}
+
+/** 已建造塔的資訊列：造價改為等級與已投入；外觀列（場上可見）改為下一級的傷害與射程預覽。 */
+function builtDetails(tw) {
+  const rows = towerDetails(tw.def);
+  rows[0] = ['等級', `Lv${tw.level} / Lv${MAX_LEVEL}（已投入 ${tw.invested} CR）`];
+  rows.pop();
+  if (tw.level < MAX_LEVEL) {
+    const next = TOWER_LEVELS[tw.id][tw.level];
+    rows.push(['下一級', `傷害 ${tw.def.damage}→${next.damage}、射程 ${fmtRange(tw.def.range)}→${fmtRange(next.range)} 格`]);
+  }
+  return rows;
 }
 
 const dl = (rows) => `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
@@ -125,6 +139,9 @@ export class App {
       this.show('screen-select');
     });
     $('#btn-wave').addEventListener('click', () => this.startWave());
+    $('#info').addEventListener('click', (e) => {
+      if (e.target.closest('#btn-upgrade')) this.upgradeSelected();
+    });
     $('#btn-maps').addEventListener('click', () => this.backToMaps());
     for (const b of document.querySelectorAll('[data-speed]')) {
       b.addEventListener('click', () => (b.dataset.speed === 'pause' ? this.togglePause() : this.setSpeed(Number(b.dataset.speed))));
@@ -302,6 +319,18 @@ export class App {
     this.renderInfo();
   }
 
+  /** 升級目前選取的已建造塔（按鈕或 U 鍵）。 */
+  upgradeSelected() {
+    if (!this.game || !this.selected) return;
+    const r = this.game.upgrade(this.selected);
+    if (!r.ok) {
+      this.audio.sfx('deny');
+      this.flash(r.reason === 'funds' ? '資源不足' : r.reason === 'max' ? '已達最高等級' : '對局已結束');
+    }
+    this.renderInfo();
+    this.updateHud();
+  }
+
   onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
@@ -323,6 +352,8 @@ export class App {
       this.togglePause();
     } else if (k === 'f' || k === 'F') {
       this.cycleSpeed();
+    } else if (k === 'u' || k === 'U') {
+      this.upgradeSelected();
     }
   }
 
@@ -386,15 +417,20 @@ export class App {
   renderInfo() {
     const info = $('#info');
     const t = this.placing ? TOWER_BY_ID[this.placing] : this.selected?.def;
-    if (t) {
-      const header = this.selected && !this.placing ? '已建造' : '選取中';
-      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">${header}</span></h3>${dl(towerDetails(t))}` +
-        (this.placing ? '<p class="hint">左鍵放置（2×2 格）・Shift＋左鍵連續放置・Esc／右鍵取消</p>' : '<p class="hint">第一版不可出售或升級</p>');
+    if (t && this.placing) {
+      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">選取中</span></h3>${dl(towerDetails(t))}` +
+        '<p class="hint">左鍵放置（2×2 格）・Shift＋左鍵連續放置・Esc／右鍵取消</p>';
+    } else if (t) {
+      const tw = this.selected;
+      const cost = tw.def.upgradeCost;
+      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">已建造・Lv${tw.level}</span></h3>${dl(builtDetails(tw))}` +
+        (cost == null ? '<p class="hint">已達最高等級・塔不可出售</p>'
+          : `<button id="btn-upgrade" class="upgrade-btn" type="button">升級至 Lv${tw.level + 1}（${cost} CR）<kbd>U</kbd></button><p class="hint">塔不可出售</p>`);
     } else {
-      info.innerHTML = '<h3>操作說明</h3><p class="hint">從上方選塔（或按 1–0、-、=），在可建塔格（方格底紋）上點擊放置；塔佔 2×2 格。</p>' +
+      info.innerHTML = '<h3>操作說明</h3><p class="hint">從上方選塔（或按 1–0、-、=），在可建塔格（方格底紋）上點擊放置；塔佔 2×2 格。點擊已建造的塔可升級（最高 Lv3）。</p>' +
         '<p class="hint">實心路面＝地面路線；懸空虛線＋投影＝空中航道；◇＝地空共用段。指向入口可高亮整條路線。</p>' +
         '<p class="hint">斜線＝邊陲荒地、紋路色塊＝主題地形，皆不可建塔。隱形敵人需 T05 偵測 6.0 格內才會顯形。</p>' +
-        '<p class="hint">Space 開始下一波・P 暫停・F 倍速・M 音樂・N 音效</p>';
+        '<p class="hint">Space 開始下一波・P 暫停・F 倍速・U 升級・M 音樂・N 音效</p>';
     }
   }
 
@@ -415,6 +451,8 @@ export class App {
     btn.disabled = !g.canStartWave();
     btn.textContent = g.wave === 0 ? '開始第 1 波' : g.wave >= WAVES_PER_MAP ? '最終波' : '開始下一波';
     for (const b of document.querySelectorAll('.tower-btn')) b.classList.toggle('poor', g.cr < TOWER_BY_ID[b.dataset.tower].cost);
+    const up = $('#btn-upgrade');
+    if (up && this.selected) up.disabled = g.cr < this.selected.def.upgradeCost || !!g.result;
     this.updateBanner();
   }
 
@@ -439,6 +477,7 @@ export class App {
     for (const ev of events) {
       switch (ev.type) {
         case 'build':
+        case 'upgrade':
         case 'waveStart':
         case 'shieldBreak':
         case 'baseHit':

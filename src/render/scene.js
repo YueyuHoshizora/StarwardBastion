@@ -421,6 +421,7 @@ export class Scene {
           this.effects.push({ kind: 'base', t, life: 36 });
           break;
         case 'build':
+        case 'upgrade':
           this.effects.push({ kind: 'build', t, life: 24, x: ev.tower.cx, y: ev.tower.cy });
           break;
         default:
@@ -454,6 +455,7 @@ export class Scene {
       drawTower(ctx, tw.id, tw.angle, pulse);
       if (tw.drones) this.drawDrones(tw, now);
       ctx.restore();
+      if (tw.level > 1) this.drawLevelPips(tw);
       if (view.selected === tw) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 0.06;
@@ -474,6 +476,26 @@ export class Scene {
 
     for (const e of [...ground, ...air]) this.drawBars(e, view.hoverEnemy === e);
     if (view.placing && view.hover) this.drawPlacement(view.placing, view.hover);
+  }
+
+  /** 塔等級標記：塔區塊右下角的菱形，Lv2 一顆、Lv3 兩顆（Lv1 不標）。 */
+  drawLevelPips(tw) {
+    const { ctx } = this;
+    for (let i = 0; i < tw.level - 1; i++) {
+      const x = tw.x + 1.8 - i * 0.26;
+      const y = tw.y + 1.8;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 0.11);
+      ctx.lineTo(x + 0.11, y);
+      ctx.lineTo(x, y + 0.11);
+      ctx.lineTo(x - 0.11, y);
+      ctx.closePath();
+      ctx.fillStyle = '#ffd966';
+      ctx.fill();
+      ctx.strokeStyle = '#0b1220';
+      ctx.lineWidth = 0.03;
+      ctx.stroke();
+    }
   }
 
   drawRouteHighlight(routeId) {
