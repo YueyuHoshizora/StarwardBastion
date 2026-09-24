@@ -1,6 +1,7 @@
 // Gate B 可重現平衡掃描：三種玩家模型 × 20 張地圖，加上敵人 HP 壓力測試，輸出 docs/平衡測試報告.md。
-// 機器人只在波次之間操作：場上清空後建塔、開波並以津貼再建塔；波次進行中不操作。
-// 高手：事先知道下一波組成，依空／地 HP 比例投資，位置取邊際覆蓋最高處，沒有空位時升級。
+// 機器人只在波次之間操作：場上清空後（出售、移動）建塔、開波並以津貼再建塔；波次進行中不操作。
+// 高手：事先知道下一波組成，依空／地 HP 比例投資，位置取邊際覆蓋最高處，沒有空位時升級；
+//       剩餘波次不再需要的塔會出售，覆蓋遠低於最佳空位的塔會移動。
 // 一般（初見）：不知道下一波，依已看過各波的空／地 HP 累計比例分配投資，見過隱形才補 T05；在前 5 名位置中隨機選；會升級。
 // 新手：不知道下一波，隨機選塔、在靠近路線的位置中隨機放置；隱形漏怪後才補 T05；不升級。
 // 模擬以 worker_threads 平行執行；每項工作都是純函式（亂數有固定種子），結果與執行順序無關、可重現。
@@ -53,13 +54,17 @@ export const TOWER_SPREAD = 0.12;
 
 /**
  * 玩家模型。foresight：事先知道下一波組成；t05：見過隱形後預先建的 T05 數（0＝漏怪後才建）；
- * topK：在前 K 名位置中隨機選；nearRatio：在分數達最佳值此比例的位置中隨機選；randomTower：隨機選塔。
+ * topK：在前 K 名位置中隨機選；nearRatio：在分數達最佳值此比例的位置中隨機選；randomTower：隨機選塔；
+ * manage：波次之間出售不再需要的塔、移動低效塔（單塔種配置 S1／S2 為「不操作」基準，不套用）。
  */
 export const SKILLS = {
-  expert: { name: '高手', foresight: true, upgrade: true, t05: 1 },
+  expert: { name: '高手', foresight: true, upgrade: true, t05: 1, manage: true },
   casual: { name: '一般', foresight: false, upgrade: true, t05: 1, topK: 5 },
   novice: { name: '新手', foresight: false, upgrade: false, t05: 0, nearRatio: 0.3, randomTower: true },
 };
+/** 高手移動：塔目前的邊際覆蓋低於同塔種最佳空位的此比例、且付得起移動費時才移動；每個波次之間最多移動幾座。 */
+export const RELOCATE_RATIO = 0.6;
+export const RELOCATE_MAX = 2;
 const NOVICE_POOL = {
   ground: TOWERS.filter((t) => t.target !== 'air').map((t) => t.id),
   air: TOWERS.filter((t) => t.target !== 'ground').map((t) => t.id),
@@ -104,20 +109,13 @@ function samples(game, layer) {
   return out;
 }
 
-/**
- * 邊際覆蓋評分：取樣點權重除以（1＋已覆蓋該點的同類塔數），讓塔分散到尚未被防守的路線，
- * 模擬玩家「補防薄弱路段」的直覺，而不是全部疊在同一處。回傳分數 > 0 的位置，由高到低（同分依掃描順序）。
- */
-function rankSpots(game, towerId, cache) {
-  const def = TOWER_BY_ID[towerId];
-  // T05 以 6.0 格偵測半徑覆蓋地面路線（隱形敵人皆為地面）為主要評分，只與其他 T05 比較重疊。
+/** 各取樣點已被幾座同類塔覆蓋（exclude 不計入，用來評估某座塔自己的貢獻）。 */
+function coverCounts(game, def, pts, exclude = null) {
   const detect = !!def.detectRadius;
-  const key = detect ? 'ground' : def.target;
-  cache[key] ??= samples(game, key);
-  const pts = cache[key];
-  const cover = pts.map(([px, py]) => {
+  return pts.map(([px, py]) => {
     let n = 0;
     for (const t of game.towers) {
+      if (t === exclude) continue;
       if (detect) {
         if (t.def.detectRadius && (px - t.cx) ** 2 + (py - t.cy) ** 2 <= t.def.detectRadius ** 2) n++;
         continue;
@@ -127,17 +125,31 @@ function rankSpots(game, towerId, cache) {
     }
     return n;
   });
-  const r = detect ? def.detectRadius : def.range;
+}
+
+/** 以塔中心 (cx, cy)、半徑 r 覆蓋取樣點的邊際分數。 */
+const spotScore = (pts, cover, cx, cy, r) => pts.reduce((s, [px, py, w], i) => ((px - cx) ** 2 + (py - cy) ** 2 <= r * r ? s + w / (1 + cover[i]) : s), 0);
+
+/** 取樣點依塔種快取：T05 以 6.0 格偵測半徑覆蓋地面路線（隱形敵人皆為地面）評分。 */
+function samplesFor(game, def, cache) {
+  const key = def.detectRadius ? 'ground' : def.target;
+  return (cache[key] ??= samples(game, key));
+}
+
+/**
+ * 邊際覆蓋評分：取樣點權重除以（1＋已覆蓋該點的同類塔數），讓塔分散到尚未被防守的路線，
+ * 模擬玩家「補防薄弱路段」的直覺，而不是全部疊在同一處。回傳分數 > 0 的位置，由高到低（同分依掃描順序）。
+ */
+function rankSpots(game, towerId, cache) {
+  const def = TOWER_BY_ID[towerId];
+  const pts = samplesFor(game, def, cache);
+  const cover = coverCounts(game, def, pts);
+  const r = def.detectRadius ?? def.range;
   const spots = [];
   for (let y = 0; y < 15; y++) {
     for (let x = 0; x < 27; x++) {
       if (!canPlaceTower(game.map, x, y, game.occupied)) continue;
-      const cx = x + 1;
-      const cy = y + 1;
-      let score = 0;
-      pts.forEach(([px, py, w], i) => {
-        if ((px - cx) ** 2 + (py - cy) ** 2 <= r * r) score += w / (1 + cover[i]);
-      });
+      const score = spotScore(pts, cover, x + 1, y + 1, r);
       if (score > 0) spots.push({ x, y, score });
     }
   }
@@ -177,6 +189,9 @@ export function runConfig(mapId, cfg, hpScale = 1) {
   const rows = [];
   const leakBy = {};
   let upgrades = 0;
+  let relocations = 0;
+  let sold = 0;
+  const manage = skill.manage && !cfg.single;
   let status10 = null;
   // 無預知模型的依據：已看過各波的空／地總 HP 累計，以及是否見過隱形（第 1 波前沒有資訊，視為全地面）
   const seen = { ground: 0, air: 0, stealth: false };
@@ -236,8 +251,50 @@ export function runConfig(mapId, cfg, hpScale = 1) {
       addInvest(TOWER_BY_ID[id].target, TOWER_BY_ID[id].cost);
     }
   };
+  // 高手（預知）：剩餘波次不會再出現空中敵人就出售對空塔、不會再出現隱形就出售 T05，退款轉投其他塔。
+  const sellPhase = (next) => {
+    if (!manage) return;
+    const rest = { air: 0, stealth: false };
+    for (let n = next; n <= 20; n++) {
+      const p = waveProfile(g, n);
+      rest.air += p.air;
+      rest.stealth ||= p.stealth;
+    }
+    for (const t of [...g.towers]) {
+      if (t.def.target === 'air' ? rest.air > 0 : t.id !== 'T05' || rest.stealth) continue;
+      if (!g.sell(t).ok) continue;
+      sold++;
+      addInvest(t.def.target, -t.invested);
+    }
+  };
+  // 高手：塔自身的邊際覆蓋（不計自己）低於同塔種最佳空位 RELOCATE_RATIO 時，移到該空位；由最低效者開始。
+  const relocatePhase = () => {
+    if (!manage) return;
+    const best = {};
+    const cands = [];
+    for (const t of g.towers) {
+      best[t.id] ??= rankSpots(g, t.id, cache)[0] ?? null;
+      const spot = best[t.id];
+      if (!spot) continue;
+      const pts = samplesFor(g, t.def, cache);
+      const own = spotScore(pts, coverCounts(g, t.def, pts, t), t.cx, t.cy, t.def.detectRadius ?? t.def.range);
+      if (own < spot.score * RELOCATE_RATIO) cands.push({ t, ratio: own / spot.score });
+    }
+    cands.sort((a, b) => a.ratio - b.ratio || a.t.uid - b.t.uid);
+    let moved = 0;
+    for (const { t } of cands) {
+      if (moved >= RELOCATE_MAX) break;
+      // 前一座移動後空位與覆蓋都已改變，重新排名
+      const spot = rankSpots(g, t.id, cache)[0];
+      if (!spot || !g.relocate(t, spot.x, spot.y).ok) continue;
+      moved++;
+      relocations++;
+    }
+  };
   while (!g.result) {
-    // 波次之間（場上清空）：建塔 → 開波 → 以剛發放的津貼再建塔；波次進行中不操作。
+    // 波次之間（場上清空）：出售、移動 → 建塔 → 開波 → 以剛發放的津貼再建塔；波次進行中不操作。
+    sellPhase(g.wave + 1);
+    relocatePhase();
     buildPhase(g.wave + 1);
     const before = { leaks: g.stats.leaks, earned: g.stats.earned, stipend: g.stats.stipend };
     g.startWave();
@@ -263,7 +320,7 @@ export function runConfig(mapId, cfg, hpScale = 1) {
       wave: n,
       leaks: g.stats.leaks - before.leaks,
       income: g.stats.earned - before.earned + (g.stats.stipend - before.stipend),
-      cumIncome: startCr + g.stats.earned + g.stats.stipend,
+      cumIncome: startCr + g.stats.earned + g.stats.stipend + g.stats.refunded,
       cumSpent: g.stats.spent,
       towers: g.towers.length,
       hp: g.baseHp,
@@ -272,7 +329,7 @@ export function runConfig(mapId, cfg, hpScale = 1) {
   }
   return {
     mapId, cfg: cfg.id, skill: cfg.skill ?? 'expert', hpScale, result: g.result, wave: g.wave, baseHp: g.baseHp,
-    leaks: g.stats.leaks, kills: g.stats.kills, towers: g.towers.length, upgrades, unspent: g.cr, leakBy,
+    leaks: g.stats.leaks, kills: g.stats.kills, towers: g.towers.length, upgrades, relocations, sold, unspent: g.cr, leakBy,
     status10: status10 ?? 'LOSE', status20: g.result === 'WIN' ? 'WIN' : 'LOSE', rows,
   };
 }
@@ -452,12 +509,12 @@ function report(all) {
   p();
   p('## 測試方法');
   p();
-  p('- 機器人只在波次之間操作：場上敵人清空後建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。');
+  p('- 機器人只在波次之間操作：場上敵人清空後（高手先出售、移動）建塔、按下開始下一波，並立即以發放的津貼再建塔；波次進行中不操作。');
   p('- 選塔：需要 T05 時先建 T05；其餘依空中／地面總 HP 比例，補足投資較少的一側。');
   p('- 回饋：上一波有隱形漏怪就把 T05 目標數加 1（最多 4 座，以 6.0 格偵測覆蓋地面路線選位）；有空中漏怪則對空投資比例提高 10%（最多 +40%）。');
   p('- 位置評分：射程內路線取樣點的邊際覆蓋（越近基地權重越高、已被覆蓋的點權重遞減）。');
   p('- 三種玩家模型：');
-  p(`  - **高手**：事先知道下一波組成（熟悉地圖），下一波有隱形就先建 1 座 T05；位置取最高分；選定的塔找不到能覆蓋路線的空位時，改升級等級最低的塔（同塔種優先、其次升級費最低）。每圖執行通關方式矩陣 24 種、混合配置 ${EXPERT_MIX.length} 種（與一般玩家相同的慣用塔組合）與配置 C1–C3、S1、S2。`);
+  p(`  - **高手**：事先知道下一波組成（熟悉地圖），下一波有隱形就先建 1 座 T05；位置取最高分；選定的塔找不到能覆蓋路線的空位時，改升級等級最低的塔（同塔種優先、其次升級費最低）。波次之間先出售剩餘波次用不到的塔（不再有空中敵人時的對空塔、不再有隱形時的 T05），再把邊際覆蓋低於同塔種最佳空位 ${pct(RELOCATE_RATIO)} 的塔移到該空位（由最低效者開始，每次最多 ${RELOCATE_MAX} 座）；S1／S2 為割草檢查的「不操作」基準，不出售也不移動。每圖執行通關方式矩陣 24 種、混合配置 ${EXPERT_MIX.length} 種（與一般玩家相同的慣用塔組合）與配置 C1–C3、S1、S2。`);
   p(`  - **一般（初見）**：不知道下一波，依已看過各波的空／地總 HP 累計比例分配投資，見過隱形後才先建 T05；慣用 2 種對地主力與 1 種對空主力循環建造；在前 ${SKILLS.casual.topK} 名位置中隨機選；會升級。每圖執行全部 ${CASUAL.length} 種慣用塔組合（${MAIN_GROUND.length} 選 2 × ${MAIN_AIR.length}）。`);
   p(`  - **新手**：不知道下一波，每座塔從可打該層級的塔中隨機選；在分數達最佳值 ${pct(SKILLS.novice.nearRatio)} 以上的位置中隨機放置；隱形漏怪後才建 T05；不升級。每圖 ${NOVICE_SEEDS} 個種子。`);
   p(`- 壓力測試：每張地圖取高手全部配置（矩陣、混合配置、C1–C3、S1、S2）中表現最好的 ${STRESS_TOP} 種，把所有敵人（含分裂子體）的 HP 與護盾乘上倍率，二分搜尋 ${STRESS_STEPS} 次找出仍能通關的最大倍率（「極限倍率」，上限 3.0）。`);
@@ -586,7 +643,7 @@ function report(all) {
     p();
     for (const r of runs) {
       const c = CONFIGS.find((x) => x.id === r.cfg);
-      p(`**${c.id} ${c.name}**：${r.result === 'WIN' ? '勝利' : '失敗'}，結束波次 ${r.wave}，基地剩餘 ${r.baseHp}，漏怪 ${r.leaks}，擊敗 ${r.kills}，建塔 ${r.towers}，升級 ${r.upgrades}；波 10：${r.status10 === 'ALIVE' ? '存活' : '失敗'}，波 20：${r.status20 === 'WIN' ? '通關' : '未通關'}`);
+      p(`**${c.id} ${c.name}**：${r.result === 'WIN' ? '勝利' : '失敗'}，結束波次 ${r.wave}，基地剩餘 ${r.baseHp}，漏怪 ${r.leaks}，擊敗 ${r.kills}，場上塔 ${r.towers}，升級 ${r.upgrades}，移動 ${r.relocations}，出售 ${r.sold}；波 10：${r.status10 === 'ALIVE' ? '存活' : '失敗'}，波 20：${r.status20 === 'WIN' ? '通關' : '未通關'}`);
       p();
       p('| 波 | ' + r.rows.map((x) => x.wave).join(' | ') + ' |');
       p('| --- | ' + r.rows.map(() => '---:').join(' | ') + ' |');
