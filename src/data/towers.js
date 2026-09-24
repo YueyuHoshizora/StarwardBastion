@@ -32,3 +32,28 @@ export const TOWERS = [
 export const TOWER_BY_ID = Object.fromEntries(TOWERS.map((t) => [t.id, t]));
 export const TOWER_SIZE = 2; // 格
 export const TARGET_LABEL = { ground: '地面', air: '空中', both: '空地共用' };
+
+// 升級：每座塔 Lv1–Lv3。傷害為 Lv1 的倍率（四捨五入至整數），射程加成單位為格；
+// 升級費用為造價的比例（四捨五入至 10 CR）。減速、偵測半徑、爆炸半徑、穿透與跳躍數不隨等級變化。
+export const MAX_LEVEL = 3;
+export const UPGRADE_STEPS = [
+  { level: 2, costRatio: 0.6, damageMult: 1.4, rangeBonus: 0.25 },
+  { level: 3, costRatio: 0.8, damageMult: 1.8, rangeBonus: 0.5 },
+];
+
+const levelDef = (t, step) => ({
+  ...t,
+  level: step ? step.level : 1,
+  damage: step ? Math.round(t.damage * step.damageMult) : t.damage,
+  range: step ? t.range + step.rangeBonus : t.range,
+});
+
+/** TOWER_LEVELS[id][level - 1]：該等級的有效數值；upgradeCost 為升到下一級的費用（滿級為 null）。 */
+export const TOWER_LEVELS = Object.fromEntries(TOWERS.map((t) => {
+  const defs = [levelDef(t, null), ...UPGRADE_STEPS.map((s) => levelDef(t, s))];
+  defs.forEach((d, i) => {
+    const next = UPGRADE_STEPS[i];
+    d.upgradeCost = next ? Math.round((t.cost * next.costRatio) / 10) * 10 : null;
+  });
+  return [t.id, defs];
+}));

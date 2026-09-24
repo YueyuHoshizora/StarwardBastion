@@ -1,7 +1,7 @@
 // 核心模擬：決定性固定步長（1/60 秒），不依賴 DOM，瀏覽器與 Node 共用。
 // 所有計時以整數 tick 計算；倍速只改變每個畫面推進的 tick 數（R11）。
 import { MAP_BY_ID } from '../data/maps.js';
-import { TOWER_BY_ID, TOWER_SIZE } from '../data/towers.js';
+import { TOWER_BY_ID, TOWER_LEVELS, TOWER_SIZE } from '../data/towers.js';
 import { ENEMY_BY_ID } from '../data/enemies.js';
 import { BASE_HP, START_CR, WAVE_STIPEND_CR, WAVES_PER_MAP, scaledHp, scaledSpeed } from '../data/difficulty.js';
 import { buildMap, canPlaceTower, cellKey } from './mapgeom.js';
@@ -99,7 +99,7 @@ export class Game {
     this.cr -= t.cost;
     for (let oy = 0; oy < TOWER_SIZE; oy++) for (let ox = 0; ox < TOWER_SIZE; ox++) this.occupied.add(cellKey(x + ox, y + oy));
     const tower = {
-      uid: ++this.uid, id: towerId, def: t, x, y, cx: x + TOWER_SIZE / 2, cy: y + TOWER_SIZE / 2,
+      uid: ++this.uid, id: towerId, def: TOWER_LEVELS[towerId][0], level: 1, invested: t.cost, x, y, cx: x + TOWER_SIZE / 2, cy: y + TOWER_SIZE / 2,
       cooldown: 0, target: null, angle: -Math.PI / 2, beamTicks: 0, firedAt: -1,
       drones: t.drones ? Array.from({ length: t.drones }, () => ({ cooldown: 0, target: null })) : null,
     };
@@ -109,6 +109,23 @@ export class Game {
     this.stats.spent += t.cost;
     this.curLog().spent += t.cost;
     this.events.push({ type: 'build', tower });
+    return { ok: true, tower };
+  }
+
+  /** 升級已建造的塔；回傳 { ok, reason }。滿級或資源不足時拒絕（不得產生負資源）。 */
+  upgrade(tower) {
+    if (this.result) return { ok: false, reason: 'ended' };
+    if (!this.towers.includes(tower)) return { ok: false, reason: 'unknown' };
+    const cost = tower.def.upgradeCost;
+    if (cost == null) return { ok: false, reason: 'max' };
+    if (this.cr < cost) return { ok: false, reason: 'funds' };
+    this.cr -= cost;
+    tower.level++;
+    tower.def = TOWER_LEVELS[tower.id][tower.level - 1];
+    tower.invested += cost;
+    this.stats.spent += cost;
+    this.curLog().spent += cost;
+    this.events.push({ type: 'upgrade', tower });
     return { ok: true, tower };
   }
 

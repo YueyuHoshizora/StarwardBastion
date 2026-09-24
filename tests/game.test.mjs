@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, SimClock, TICKS_PER_SEC, getMap } from '../src/core/game.js';
 import { MAPS } from '../src/data/maps.js';
-import { TOWER_BY_ID } from '../src/data/towers.js';
+import { TOWER_BY_ID, TOWER_LEVELS } from '../src/data/towers.js';
 import { canPlaceTower } from '../src/core/mapgeom.js';
 import { START_CR, WAVE_STIPEND_CR, waveSize, scaledHp } from '../src/data/difficulty.js';
 import { WAVES } from '../src/data/waves.js';
@@ -210,6 +210,35 @@ test('經濟：初始資源、資源不足拒絕、第 2 波起發放津貼、�
   assert.ok(g.startWave());
   assert.equal(g.cr, before + WAVE_STIPEND_CR);
   assert.equal(g.build('T01', 24, 12).reason, 'blocked', '基地格不可建');
+});
+
+test('升級：Lv1→Lv3 扣升級費、傷害與射程提升並實際生效；資源不足或滿級拒絕且不扣款', () => {
+  const g = new Game('M01');
+  const e = frozen(g, 'E03', 20);
+  const [lv1, lv2, lv3] = TOWER_LEVELS.T01;
+  // 塔中心與敵人距離介於 Lv1 與 Lv3 射程之間：Lv1 打不到，Lv3 打得到
+  const s = spotNear(g, e.x, e.y, lv3.range - 0.05, lv1.range + 0.05);
+  const t = g.build('T01', s.tx, s.ty).tower;
+  g.step(1);
+  assert.equal(t.target, null);
+  g.cr = lv1.upgradeCost - 1;
+  assert.equal(g.upgrade(t).reason, 'funds');
+  assert.equal(t.level, 1);
+  assert.equal(g.cr, lv1.upgradeCost - 1);
+  g.cr = 1000;
+  assert.ok(g.upgrade(t).ok);
+  assert.ok(g.upgrade(t).ok);
+  const left = 1000 - lv1.upgradeCost - lv2.upgradeCost;
+  assert.equal(g.cr, left);
+  assert.equal(t.invested, lv1.cost + lv1.upgradeCost + lv2.upgradeCost);
+  assert.equal(g.upgrade(t).reason, 'max');
+  assert.equal(g.cr, left);
+  const hp = e.hp;
+  g.step(1);
+  assert.equal(t.target, e);
+  g.step(30); // 子彈 12 格／秒在 30 tick 內命中；下一發在 36 tick 後
+  assert.equal(hp - e.hp, lv3.damage);
+  assert.ok(lv3.damage > lv1.damage);
 });
 
 test('倍速：2×／4× 每畫面推進 2／4 倍 tick，暫停不推進，恢復維持原倍率（R11）', () => {
