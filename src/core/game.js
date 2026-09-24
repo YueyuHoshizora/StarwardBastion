@@ -306,10 +306,15 @@ export class Game {
         this.projectiles.push({ uid: ++this.uid, kind: def.attack, tower: t, target, x: t.cx, y: t.cy, speed: PROJECTILE[t.id].speed });
         this.events.push({ type: 'shot', tower: t, kind: def.attack, from, to: [target.x, target.y] });
         break;
-      case 'mortar':
-        this.projectiles.push({ uid: ++this.uid, kind: 'mortar', tower: t, x0: t.cx, y0: t.cy, tx: target.x, ty: target.y, x: t.cx, y: t.cy, age: 0, ticks: PROJECTILE.T03.flightTicks });
-        this.events.push({ type: 'shot', tower: t, kind: 'mortar', from, to: [target.x, target.y] });
+      case 'mortar': {
+        // 預判落點：以目標目前（含減速）速度推算飛行時間後在路線上的位置
+        const ticks = PROJECTILE.T03.flightTicks;
+        const lead = target.baseSpeed * (1 - this.slowFactor(target)) * ticks * DT;
+        const [tx, ty] = pointAt(target.path, Math.min(target.path.length, target.dist + lead));
+        this.projectiles.push({ uid: ++this.uid, kind: 'mortar', tower: t, x0: t.cx, y0: t.cy, tx, ty, x: t.cx, y: t.cy, age: 0, ticks });
+        this.events.push({ type: 'shot', tower: t, kind: 'mortar', from, to: [tx, ty] });
         break;
+      }
       case 'pierce': {
         const hits = this.pierceHits(t, target);
         const len = def.range;

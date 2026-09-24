@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, SimClock, TICKS_PER_SEC, getMap } from '../src/core/game.js';
+import { Game, SimClock, TICKS_PER_SEC, PROJECTILE, getMap } from '../src/core/game.js';
 import { MAPS } from '../src/data/maps.js';
 import { TOWER_BY_ID, TOWER_LEVELS } from '../src/data/towers.js';
 import { canPlaceTower } from '../src/core/mapgeom.js';
@@ -239,6 +239,21 @@ test('升級：Lv1→Lv3 扣升級費、傷害與射程提升並實際生效；�
   g.step(30); // 子彈 12 格／秒在 30 tick 內命中；下一發在 36 tick 後
   assert.equal(hp - e.hp, lv3.damage);
   assert.ok(lv3.damage > lv1.damage);
+});
+
+test('T03 預判落點：命中移動中的極速敵人（E11 在 0.6 秒飛行時間內移動超過爆炸半徑）', () => {
+  const g = rich();
+  const route = g.map.routes.find((r) => r.layer === 'ground').id;
+  const e = g.spawn('E11', route, 8, 1, false);
+  const t = buildNear(g, 'T03', e, 3.0);
+  e.dist = 2;
+  g.place(e);
+  assert.ok(e.baseSpeed * PROJECTILE.T03.flightTicks / TICKS_PER_SEC > TOWER_BY_ID.T03.splash, '前提：飛行期間移動距離大於爆炸半徑');
+  const hp = e.hp;
+  while (!g.projectiles.length) g.step(1);
+  assert.equal(g.projectiles[0].tower, t);
+  g.step(PROJECTILE.T03.flightTicks);
+  assert.ok(e.hp < hp, '落點應命中目標');
 });
 
 test('倍速：2×／4× 每畫面推進 2／4 倍 tick，暫停不推進，恢復維持原倍率（R11）', () => {
