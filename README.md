@@ -16,6 +16,7 @@
   - 追蹤飛彈
   - 無人機
   - 重力減速
+- **塔升級**：每座塔可升到 Lv3，提升傷害與射程；塔不能出售。
 - **16 種敵人**：包含一般、快速、重裝、護盾、空中、隱形與分裂型。隱形敵人只有冰晶偵測塔（T05）才能讓它們現形。
 - **地面路線與空中航道**：每張地圖都有地空共用路段，並以不同線型標示，不只靠顏色區分。
 - **20 首原創 8-bit 背景音樂**：每張地圖一首，以 Web Audio 即時合成，無縫循環；另有首頁與地圖選擇共用的選單曲《星域序曲》。
@@ -65,7 +66,8 @@ node tools/serve.mjs      # 需要 Node.js 20 以上，開啟 http://localhost:8
 ```sh
 npm test                 # 規格驗證（Gate A）與模擬測試，不需安裝任何套件
 npm run spec:waves       # 重新產生波次資料 src/data/waves.js
-npm run spec:docs        # 重新產生 docs/ 內的附錄 A–C
+npm run spec:docs        # 重新產生 docs/ 內的附錄 A–C 與 DESIGN.md
+node tools/balance.mjs   # 平衡模擬，輸出 docs/平衡測試報告.md
 ```
 
 - 規格文件：[`docs/規格補完提案.md`](docs/規格補完提案.md)。
@@ -73,6 +75,7 @@ npm run spec:docs        # 重新產生 docs/ 內的附錄 A–C
   - [地圖](docs/附錄A_地圖資料.md)
   - [波次](docs/附錄B_波次編成.md)
   - [音樂](docs/附錄C_音樂音序.md)
+- 數值總表：[`DESIGN.md`](DESIGN.md)；平衡分析：[平衡測試報告](docs/平衡測試報告.md)（含每張地圖的通關方式矩陣，每圖至少 5 種方式可在基地生命 ≥80% 下通關）。
 - 協作守則：[`AGENTS.md`](AGENTS.md)。
 
 ## 授權
