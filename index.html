@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>星域防線 Starward Bastion</title>
+  <meta name="description" content="守衛星際殖民地的能源核心！未來科技俯視塔防：20 張地圖、12 種防禦塔、16 種敵人、20 首原創 8-bit 音樂，免安裝即玩。">
+  <link rel="canonical" href="https://starward-bastion.yustellar.dev/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="星域防線 Starward Bastion">
+  <meta property="og:locale" content="zh_TW">
+  <meta property="og:url" content="https://starward-bastion.yustellar.dev/">
+  <meta property="og:title" content="星域防線 Starward Bastion — 未來科技塔防">
+  <meta property="og:description" content="守衛星際殖民地的能源核心！20 張地圖、12 種防禦塔、16 種敵人、20 首原創 8-bit 音樂，桌面瀏覽器免安裝即玩。">
+  <meta property="og:image" content="https://starward-bastion.yustellar.dev/icons/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="星域防線 Starward Bastion：俯視戰場上的道路、空中航道、防禦塔與能源核心">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="星域防線 Starward Bastion — 未來科技塔防">
+  <meta name="twitter:description" content="20 張地圖、12 種防禦塔、16 種敵人、20 首原創 8-bit 音樂，桌面瀏覽器免安裝即玩。">
+  <meta name="twitter:image" content="https://starward-bastion.yustellar.dev/icons/og-image.png">
+  <meta name="twitter:image:alt" content="星域防線 Starward Bastion 分享圖">
+  <meta name="theme-color" content="#0a0f1c">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="星域防線">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 首頁 -->
+    <section id="screen-title" class="screen active" aria-label="首頁">
+      <div class="title-box">
+        <h1><span class="zh">星域防線</span><span class="en">Starward Bastion</span></h1>
+        <p class="lead">守衛人類星際殖民地的能源核心，阻止機械群沿地表通道與空中航道進攻。</p>
+        <button id="btn-start" class="primary big">開始遊戲</button>
+        <ul class="keys">
+          <li><kbd>1</kbd>–<kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> 選塔</li>
+          <li><kbd>Esc</kbd> 取消</li>
+          <li><kbd>Space</kbd> 開始下一波</li>
+          <li><kbd>P</kbd> 暫停</li>
+          <li><kbd>F</kbd> 倍速</li>
+          <li><kbd>M</kbd> 音樂</li>
+          <li><kbd>N</kbd> 音效</li>
+        </ul>
+        <p class="install-row"><button id="btn-install" class="ghost" hidden>安裝為應用程式</button><span id="offline-state"></span></p>
+      </div>
+    </section>
+
+    <!-- 地圖選擇 -->
+    <section id="screen-select" class="screen" aria-label="地圖選擇">
+      <header class="select-head">
+        <h2>選擇地圖</h2>
+        <div class="select-tools">
+          <button id="sel-music" class="toggle" aria-pressed="true">♪ 音樂</button>
+          <button id="sel-sfx" class="toggle" aria-pressed="true">🔊 音效</button>
+        </div>
+      </header>
+      <div id="map-grid" class="map-grid"></div>
+    </section>
+
+    <!-- 對局 -->
+    <section id="screen-game" class="screen" aria-label="對局">
+      <header class="topbar">
+        <div class="tb-map"><b id="hud-map"></b> <span id="hud-star" class="stars"></span></div>
+        <div class="tb-stat" title="波次"><span class="lbl">波次</span><b id="hud-wave">0/20</b></div>
+        <div class="tb-stat" title="基地生命"><span class="lbl">♥ 基地</span><b id="hud-hp">20</b></div>
+        <div class="tb-stat" title="資源"><span class="lbl">CR</span><b id="hud-cr">240</b></div>
+        <div class="tb-speed" role="group" aria-label="速度">
+          <span class="lbl">速度</span><b id="hud-speed">1×</b>
+          <button data-speed="pause" title="暫停／繼續（P）">⏸</button>
+          <button data-speed="1">1×</button>
+          <button data-speed="2">2×</button>
+          <button data-speed="4">4×</button>
+        </div>
+        <div class="tb-audio">
+          <button id="btn-music" class="toggle" aria-pressed="true" title="音樂靜音（M）">♪</button>
+          <button id="btn-sfx" class="toggle" aria-pressed="true" title="音效靜音（N）">🔊</button>
+        </div>
+        <button id="btn-wave" class="primary" title="開始下一波（Space）">開始下一波</button>
+        <button id="btn-maps" class="ghost" title="返回地圖選擇">地圖</button>
+      </header>
+      <main class="field-wrap">
+        <div id="field" class="field">
+          <canvas id="battle"></canvas>
+          <div id="banner" class="banner" hidden></div>
+        </div>
+        <aside class="side">
+          <div id="tower-grid" class="tower-grid" role="listbox" aria-label="塔選單"></div>
+          <div id="info" class="info" aria-live="polite"></div>
+        </aside>
+      </main>
+      <div id="result" class="result" hidden>
+        <div class="result-box">
+          <canvas id="card-preview" width="1200" height="675"></canvas>
+          <div class="result-side">
+            <h2 id="result-title"></h2>
+            <dl id="result-stats"></dl>
+            <p id="result-error" class="error" role="alert" hidden></p>
+            <div class="result-actions">
+              <button id="btn-download" class="primary">下載戰果分享卡</button>
+              <button id="btn-restart">重新開始</button>
+              <button id="btn-back">返回地圖選擇</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
