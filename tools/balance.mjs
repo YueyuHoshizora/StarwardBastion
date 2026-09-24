@@ -171,8 +171,31 @@ export function runConfig(mapId, cfg) {
   return { mapId, cfg: cfg.id, result: g.result, wave: g.wave, baseHp: g.baseHp, leaks: g.stats.leaks, kills: g.stats.kills, towers: g.towers.length, status10: status10 ?? 'LOSE', status20: g.result === 'WIN' ? 'WIN' : 'LOSE', rows };
 }
 
+/** 通關方式矩陣：7 種對地主力 × 3 種對空主力，外加 3 組控制塔（T05／T11）搭配；每種各自一個機器人配置。 */
+export const MAIN_GROUND = ['T01', 'T02', 'T03', 'T04', 'T06', 'T10', 'T12'];
+export const MAIN_AIR = ['T07', 'T08', 'T09'];
+export const STRATEGIES = [
+  ...MAIN_GROUND.flatMap((g) => MAIN_AIR.map((a) => ({ id: `${g}+${a}`, ground: [g], air: [a] }))),
+  { id: 'T01/T11+T07', ground: ['T01', 'T11'], air: ['T07'] },
+  { id: 'T02/T05+T08', ground: ['T02', 'T05'], air: ['T08'] },
+  { id: 'T03/T11+T09', ground: ['T03', 'T11'], air: ['T09'] },
+];
+/** 「一種通關方式」＝通關且基地剩餘生命 ≥ HP_TARGET；每張地圖至少 MIN_WAYS 種，且對地主力至少 MIN_GROUND_MAINS 種不同塔。 */
+export const HP_TARGET = 16;
+export const MIN_WAYS = 5;
+export const MIN_GROUND_MAINS = 3;
+
 export function runAll(maps = MAPS) {
-  return maps.map((m) => ({ map: m, runs: CONFIGS.map((c) => runConfig(m.id, c)) }));
+  return maps.map((m) => ({ map: m, runs: CONFIGS.map((c) => runConfig(m.id, c)), ways: STRATEGIES.map((s) => runConfig(m.id, s)) }));
+}
+
+const viable = (r) => r.result === 'WIN' && r.baseHp >= HP_TARGET;
+
+/** 每張地圖可行的通關方式與判定。 */
+export function waysVerdict(entry) {
+  const ok = entry.ways.filter(viable);
+  const mains = new Set(ok.map((r) => STRATEGIES.find((s) => s.id === r.cfg).ground[0]));
+  return { ok, mains, pass: ok.length >= MIN_WAYS && mains.size >= MIN_GROUND_MAINS };
 }
 
 function report(all) {
@@ -219,6 +242,32 @@ function report(all) {
   p(`- 每張地圖最佳配置的基地剩餘生命（目標 ≥16，即 80%）：最低 ${Math.min(...bestHp.map((x) => x.hp))}；${low.length ? `**未達標：${low.map((x) => `${x.id}（${x.hp}）`).join('、')}**` : '全部達標'}`);
   p(`- 至少一種配置可通關的地圖：${winnable.length}／${all.length}${winnable.length < all.length ? `（無法通關：${all.filter((x) => !winnable.includes(x)).map((x) => x.map.id).join('、')}）` : ''}`);
   p();
+  p('## 通關方式矩陣');
+  p();
+  p(`每種方式以一個機器人配置執行（對地只建該主力、對空只建該主力；隱形將出現時仍補 T05）。「通關方式」＝通關且基地剩餘生命 ≥${HP_TARGET}（80%）。判定：每張地圖至少 ${MIN_WAYS} 種，且其中對地主力至少 ${MIN_GROUND_MAINS} 種不同塔。`);
+  p();
+  p(`| 地圖 | 星級 | ${STRATEGIES.map((s) => s.id).join(' | ')} | 通關方式 | 判定 |`);
+  p(`| --- | --- | ${STRATEGIES.map(() => '---:').join(' | ')} | ---: | --- |`);
+  const wayVerdicts = [];
+  for (const entry of all) {
+    const v = waysVerdict(entry);
+    wayVerdicts.push(v.pass);
+    const cell = (r) => (r.result === 'WIN' ? (viable(r) ? `**${r.baseHp}**` : String(r.baseHp)) : `敗 W${r.wave}`);
+    p(`| ${entry.map.id} | ${'★'.repeat(entry.map.star)} | ${entry.ways.map(cell).join(' | ')} | ${v.ok.length}／${STRATEGIES.length} | ${v.pass ? '通過' : '**未通過**'} |`);
+  }
+  p();
+  p('格式：數字為勝利時的基地剩餘生命，粗體表示達 80%；「敗 W」為失敗波次。');
+  p();
+  p('### 各塔可行度');
+  p();
+  p('| 塔 | 作為主力或控制塔出現在「通關方式」中的地圖數 | 次數 |');
+  p('| --- | ---: | ---: |');
+  const towerIds = [...MAIN_GROUND, 'T05', 'T11', ...MAIN_AIR].sort();
+  for (const id of towerIds) {
+    const uses = all.map((e) => e.ways.filter((r) => viable(r) && r.cfg.split(/[+/]/).includes(id)).length);
+    p(`| ${id} ${TOWER_BY_ID[id].name} | ${uses.filter(Boolean).length}／${all.length} | ${uses.reduce((a, b) => a + b, 0)} |`);
+  }
+  p();
   p('## 逐圖逐配置紀錄');
   p();
   for (const { map, runs } of all) {
@@ -237,18 +286,22 @@ function report(all) {
       p();
     }
   }
-  return { md: L.join('\n'), verdicts, winnable: winnable.length };
+  return { md: L.join('\n'), verdicts, wayVerdicts, winnable: winnable.length };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const t0 = Date.now();
   const all = runAll();
   if (process.argv.includes('--json')) {
-    console.log(JSON.stringify(all.map(({ map, runs }) => ({ id: map.id, star: map.star, runs: runs.map(({ rows, ...r }) => r) }))));
+    const strip = ({ rows, ...r }) => r;
+    console.log(JSON.stringify(all.map(({ map, runs, ways }) => ({ id: map.id, star: map.star, runs: runs.map(strip), ways: ways.map(strip) }))));
   } else {
-    const { md, verdicts, winnable } = report(all);
+    const { md, verdicts, wayVerdicts, winnable } = report(all);
     writeFileSync(new URL('../docs/平衡測試報告.md', import.meta.url), `${md}\n`);
-    for (const { map, runs } of all) console.log(`${map.id} ${'★'.repeat(map.star).padEnd(5)} ${runs.map((r) => `${r.cfg}:${r.result === 'WIN' ? `W♥${r.baseHp}` : `L${r.wave}`}`).join(' ')}`);
-    console.log(`割草檢查：${verdicts.map((v, i) => `${i + 1}★${v ? '通過' : '未通過'}`).join(' ')}；可通關地圖 ${winnable}/20；耗時 ${((Date.now() - t0) / 1000).toFixed(1)} 秒`);
+    for (const entry of all) {
+      const v = waysVerdict(entry);
+      console.log(`${entry.map.id} ${'★'.repeat(entry.map.star).padEnd(5)} ${entry.runs.map((r) => `${r.cfg}:${r.result === 'WIN' ? `W♥${r.baseHp}` : `L${r.wave}`}`).join(' ')} ｜通關方式 ${v.ok.length}/${STRATEGIES.length}（主力 ${[...v.mains].join('、')}）`);
+    }
+    console.log(`割草檢查：${verdicts.map((v, i) => `${i + 1}★${v ? '通過' : '未通過'}`).join(' ')}；可通關地圖 ${winnable}/20；通關方式達標 ${wayVerdicts.filter(Boolean).length}/20；耗時 ${((Date.now() - t0) / 1000).toFixed(1)} 秒`);
   }
 }
