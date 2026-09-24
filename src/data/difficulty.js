@@ -9,8 +9,8 @@ export const DIFFICULTY = {
 
 export const WAVES_PER_MAP = 20;
 export const BASE_HP = 20;
-export const START_CR = 240;
-export const WAVE_STIPEND_CR = 60;
+export const START_CR = 500; // Gate B 平衡調整：初稿 240
+export const WAVE_STIPEND_CR = 150; // Gate B 平衡調整：初稿 60
 
 /** 每波主體敵人數 N(n)=6+⌊n/2⌋ */
 export const waveSize = (n) => 6 + Math.floor(n / 2);

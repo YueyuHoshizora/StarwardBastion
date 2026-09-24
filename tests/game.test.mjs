@@ -7,6 +7,7 @@ import { canPlaceTower } from '../src/core/mapgeom.js';
 import { START_CR, WAVE_STIPEND_CR, waveSize, scaledHp } from '../src/data/difficulty.js';
 import { WAVES } from '../src/data/waves.js';
 import { ENEMY_BY_ID } from '../src/data/enemies.js';
+import { SPAWN_INTERVAL } from '../src/core/waves.js';
 
 /** 找一個塔中心到 (x, y) 距離在 [minR, maxR] 內的合法 2×2 位置，偏好最近者。 */
 function spotNear(game, x, y, maxR, minR = 0) {
@@ -184,25 +185,30 @@ test('E10 死亡生成 2 隻 E01 子體：計入擊敗、不給獎勵（Q10）',
   assert.equal(g.cr, cr + 11);
   const kids = g.enemies.filter((x) => x.isChild);
   assert.equal(kids.length, 2);
-  assert.ok(kids.every((k) => k.id === 'E01' && k.dist === 20 && k.maxHp === scaledHp(130, 1, 1)));
+  assert.ok(kids.every((k) => k.id === 'E01' && k.dist === 20 && k.maxHp === scaledHp(ENEMY_BY_ID.E01.hp, 1, 1)));
   for (const k of kids) g.damage(k, 1e6, false, null);
   assert.equal(g.cr, cr + 11);
   assert.equal(g.stats.kills, 3);
 });
 
-test('經濟：初始 240 CR、資源不足拒絕、第 2 波起發放 60 CR、主體生成完畢才可開下一波（R5、R6）', () => {
+test('經濟：初始資源、資源不足拒絕、第 2 波起發放津貼、主體生成完畢才可開下一波（R5、R6）', () => {
   const g = new Game('M01');
   assert.equal(g.cr, START_CR);
   const s = spotNear(g, 5, 5, 20);
-  assert.equal(g.build('T12', s.tx, s.ty).reason, 'funds');
-  assert.equal(g.cr, START_CR);
+  assert.ok(g.build('T12', s.tx, s.ty).ok);
+  const left = START_CR - TOWER_BY_ID.T12.cost;
+  assert.ok(left < TOWER_BY_ID.T12.cost);
+  const s2 = spotNear(g, 20, 10, 20);
+  assert.equal(g.build('T12', s2.tx, s2.ty).reason, 'funds');
+  assert.equal(g.cr, left);
   assert.ok(g.startWave());
-  assert.equal(g.cr, START_CR);
+  assert.equal(g.cr, left, '第 1 波無津貼');
   assert.equal(g.canStartWave(), false);
-  g.step((waveSize(1) - 1) * TICKS_PER_SEC);
+  g.step((waveSize(1) - 1) * SPAWN_INTERVAL * TICKS_PER_SEC);
   assert.equal(g.canStartWave(), true);
+  const before = g.cr;
   assert.ok(g.startWave());
-  assert.equal(g.cr, START_CR + WAVE_STIPEND_CR);
+  assert.equal(g.cr, before + WAVE_STIPEND_CR);
   assert.equal(g.build('T01', 24, 12).reason, 'blocked', '基地格不可建');
 });
 
@@ -235,15 +241,19 @@ function autoplay(mapId, order, clockSpeed = 1) {
   const spots = [];
   for (let y = 0; y < 15; y++) for (let x = 0; x < 27; x++) if (canPlaceTower(g.map, x, y)) spots.push([x, y]);
   let spawned = 0;
+  // 玩家在相同的模擬時刻做相同操作：逐 tick 決策，倍速只決定每畫面消化幾個 tick。
   while (!g.result) {
-    while (order.length && g.cr >= TOWER_BY_ID[order[k % order.length]].cost) {
-      const spot = spots.find(([x, y]) => g.canPlace('T01', x, y));
-      if (!spot) break;
-      g.build(order[k++ % order.length], spot[0], spot[1]);
+    const ticks = clock.advance(1 / 60);
+    for (let t = 0; t < ticks && !g.result; t++) {
+      while (order.length && g.cr >= TOWER_BY_ID[order[k % order.length]].cost) {
+        const spot = spots.find(([x, y]) => g.canPlace('T01', x, y));
+        if (!spot) break;
+        g.build(order[k++ % order.length], spot[0], spot[1]);
+      }
+      if (g.canStartWave()) g.startWave();
+      g.step(1);
+      spawned += g.drainEvents().filter((e) => e.type === 'spawn' && !e.enemy.isChild).length;
     }
-    if (g.canStartWave()) g.startWave();
-    g.step(clock.advance(1 / 60));
-    spawned += g.drainEvents().filter((e) => e.type === 'spawn' && !e.enemy.isChild).length;
     assert.ok(g.tick < 3600 * TICKS_PER_SEC, `${mapId} 未在時限內結束`);
   }
   return { g, spawned };
