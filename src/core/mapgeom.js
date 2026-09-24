@@ -33,7 +33,7 @@ export function expandPath(points, allowDiagonal) {
   return cells;
 }
 
-function featureCells(f) {
+export function featureCells(f) {
   const out = [];
   if (f.kind === 'rect') {
     for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) out.push([x, y]);
