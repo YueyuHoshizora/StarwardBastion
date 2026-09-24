@@ -50,11 +50,12 @@
 ```sh
 npm test                 # 全部測試
 npm run spec:waves       # 重新產生 src/data/waves.js
-npm run spec:docs        # 重新產生 docs/附錄A–C
+npm run spec:docs        # 重新產生 docs/附錄A–C 與 DESIGN.md
+node tools/balance.mjs   # 平衡模擬 → docs/平衡測試報告.md（約 30 秒）
 node tools/serve.mjs     # 本機伺服器 http://localhost:8080
 ```
 
-修改 `maps.js` 或波次生成器後，必須重新產生附錄並執行測試。
+修改 `maps.js` 或波次生成器後，必須重新產生附錄並執行測試。修改塔、敵人、經濟或地圖數值後，還要執行 `node tools/balance.mjs`，確認終端輸出「通關方式達標 20/20」與割草檢查全部通過，並同步規格補完提案第七節。
 
 ## 實作慣例
 
