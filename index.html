@@ -39,6 +39,10 @@
         <p class="lead">守衛人類星際殖民地的能源核心，阻止機械群沿地表通道與空中航道進攻。</p>
         <button id="btn-start" class="primary big">開始遊戲</button>
         <p id="audio-hint" class="audio-hint">🔈 點擊任意處或按任意鍵開啟音樂與音效</p>
+        <div class="vol-row">
+          <span class="vol"><button class="toggle" data-audio="music" aria-pressed="true">♪ 音樂</button><input type="range" min="0" max="100" step="5" data-vol="music" aria-label="音樂音量"></span>
+          <span class="vol"><button class="toggle" data-audio="sfx" aria-pressed="true">🔊 音效</button><input type="range" min="0" max="100" step="5" data-vol="sfx" aria-label="音效音量"></span>
+        </div>
         <ul class="keys">
           <li><kbd>1</kbd>–<kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> 選塔</li>
           <li><kbd>Esc</kbd> 取消</li>
@@ -57,8 +61,8 @@
       <header class="select-head">
         <h2>選擇地圖</h2>
         <div class="select-tools">
-          <button id="sel-music" class="toggle" aria-pressed="true">♪ 音樂</button>
-          <button id="sel-sfx" class="toggle" aria-pressed="true">🔊 音效</button>
+          <span class="vol"><button class="toggle" data-audio="music" aria-pressed="true">♪ 音樂</button><input type="range" min="0" max="100" step="5" data-vol="music" aria-label="音樂音量"></span>
+          <span class="vol"><button class="toggle" data-audio="sfx" aria-pressed="true">🔊 音效</button><input type="range" min="0" max="100" step="5" data-vol="sfx" aria-label="音效音量"></span>
         </div>
       </header>
       <div id="map-grid" class="map-grid"></div>
@@ -79,8 +83,8 @@
           <button data-speed="4">4×</button>
         </div>
         <div class="tb-audio">
-          <button id="btn-music" class="toggle" aria-pressed="true" title="音樂靜音（M）">♪</button>
-          <button id="btn-sfx" class="toggle" aria-pressed="true" title="音效靜音（N）">🔊</button>
+          <span class="vol"><button class="toggle" data-audio="music" aria-pressed="true">♪</button><input type="range" min="0" max="100" step="5" data-vol="music" aria-label="音樂音量"></span>
+          <span class="vol"><button class="toggle" data-audio="sfx" aria-pressed="true">🔊</button><input type="range" min="0" max="100" step="5" data-vol="sfx" aria-label="音效音量"></span>
         </div>
         <button id="btn-wave" class="primary" title="開始下一波（Space）">開始下一波</button>
         <button id="btn-maps" class="ghost" title="返回地圖選擇">地圖</button>

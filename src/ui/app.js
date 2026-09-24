@@ -13,6 +13,7 @@ const $ = (sel) => document.querySelector(sel);
 const KEY_TO_TOWER = { 1: 'T01', 2: 'T02', 3: 'T03', 4: 'T04', 5: 'T05', 6: 'T06', 7: 'T07', 8: 'T08', 9: 'T09', 0: 'T10', '-': 'T11', '=': 'T12' };
 const TOWER_KEY = Object.fromEntries(Object.entries(KEY_TO_TOWER).map(([k, v]) => [v, k]));
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+const AUDIO_PREFS = 'sb-audio'; // localStorage：{ musicOn, sfxOn, music, sfx }（音量 0–100）
 
 const fmtRange = (r) => r.toFixed(2).replace(/0$/, '');
 
@@ -57,6 +58,7 @@ export class App {
     this.buildTowerMenu();
     this.buildMapGrid();
     this.bind();
+    this.loadAudioPrefs();
     this.syncAudioButtons();
     // 首頁載入即嘗試播放選單曲：瀏覽器允許自動播放時立即發聲，否則等第一次點擊或按鍵（見 bind）。
     this.audio.onstatechange = () => this.syncAudioHint();
@@ -164,12 +166,14 @@ export class App {
     for (const b of document.querySelectorAll('[data-speed]')) {
       b.addEventListener('click', () => (b.dataset.speed === 'pause' ? this.togglePause() : this.setSpeed(Number(b.dataset.speed))));
     }
-    const toggleMusic = () => this.setMusic(!this.audio.musicOn);
-    const toggleSfx = () => this.setSfx(!this.audio.sfxOn);
-    $('#btn-music').addEventListener('click', toggleMusic);
-    $('#sel-music').addEventListener('click', toggleMusic);
-    $('#btn-sfx').addEventListener('click', toggleSfx);
-    $('#sel-sfx').addEventListener('click', toggleSfx);
+    for (const b of document.querySelectorAll('[data-audio]')) {
+      b.addEventListener('click', () => (b.dataset.audio === 'music' ? this.setMusic(!this.audio.musicOn) : this.setSfx(!this.audio.sfxOn)));
+    }
+    for (const r of document.querySelectorAll('[data-vol]')) {
+      r.addEventListener('input', () => this.setVolume(r.dataset.vol, Number(r.value)));
+      // 放開音效滑桿時試播一聲，讓玩家聽到新音量。
+      if (r.dataset.vol === 'sfx') r.addEventListener('change', () => this.audio.sfx('click'));
+    }
     $('#btn-download').addEventListener('click', () => this.download());
     $('#btn-restart').addEventListener('click', () => this.startMap(this.game.mapId));
     $('#btn-back').addEventListener('click', () => this.backToMaps());
@@ -262,15 +266,54 @@ export class App {
     this.syncAudioButtons();
   }
 
+  /** 滑桿音量 0–100；拖到大於 0 時自動解除該聲道靜音。 */
+  setVolume(kind, pct) {
+    const v = pct / 100;
+    if (kind === 'music') {
+      this.audio.setMusicVolume(v);
+      if (v > 0 && !this.audio.musicOn) this.audio.setMusic(true);
+    } else {
+      this.audio.setSfxVolume(v);
+      if (v > 0 && !this.audio.sfxOn) this.audio.setSfx(true);
+    }
+    this.syncAudioButtons();
+  }
+
+  loadAudioPrefs() {
+    let p = null;
+    try {
+      p = JSON.parse(localStorage.getItem(AUDIO_PREFS));
+    } catch {}
+    if (!p || typeof p !== 'object') return;
+    const pct = (x) => (Number.isFinite(x) ? Math.min(100, Math.max(0, x)) / 100 : 1);
+    this.audio.setMusicVolume(pct(p.music));
+    this.audio.setSfxVolume(pct(p.sfx));
+    this.audio.setMusic(p.musicOn !== false);
+    this.audio.setSfx(p.sfxOn !== false);
+  }
+
+  /** 同步所有畫面的靜音按鈕與音量滑桿，並保存設定。 */
   syncAudioButtons() {
-    for (const id of ['#btn-music', '#sel-music']) {
-      $(id).setAttribute('aria-pressed', String(this.audio.musicOn));
-      $(id).title = this.audio.musicOn ? '音樂：開（M 切換）' : '音樂：關（M 切換）';
+    const a = this.audio;
+    const state = {
+      music: { on: a.musicOn, vol: a.musicVol, name: '音樂', key: 'M' },
+      sfx: { on: a.sfxOn, vol: a.sfxVol, name: '音效', key: 'N' },
+    };
+    for (const b of document.querySelectorAll('[data-audio]')) {
+      const s = state[b.dataset.audio];
+      b.setAttribute('aria-pressed', String(s.on));
+      b.title = `${s.name}：${s.on ? '開' : '關'}（${s.key} 切換）`;
     }
-    for (const id of ['#btn-sfx', '#sel-sfx']) {
-      $(id).setAttribute('aria-pressed', String(this.audio.sfxOn));
-      $(id).title = this.audio.sfxOn ? '音效：開（N 切換）' : '音效：關（N 切換）';
+    for (const r of document.querySelectorAll('[data-vol]')) {
+      const s = state[r.dataset.vol];
+      const pct = Math.round(s.vol * 100);
+      if (document.activeElement !== r) r.value = String(pct);
+      r.title = `${s.name}音量 ${pct}%`;
+      r.classList.toggle('muted', !s.on);
     }
+    try {
+      localStorage.setItem(AUDIO_PREFS, JSON.stringify({ musicOn: a.musicOn, sfxOn: a.sfxOn, music: Math.round(a.musicVol * 100), sfx: Math.round(a.sfxVol * 100) }));
+    } catch {}
   }
 
   selectTower(id) {

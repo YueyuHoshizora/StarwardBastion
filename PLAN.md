@@ -21,7 +21,7 @@
 | 模擬 | `src/core/game.js` | 決定性固定步長模擬：經濟、建塔、敵人移動、12 種攻擊、隱形、減速、分裂、勝敗、統計快照。不依賴 DOM，Node 與瀏覽器共用 |
 | 繪製 | `src/render/*.js` | Canvas 2D 俯視繪製：地圖、路線層級、塔頂圖示、敵人輪廓、特效、預覽 |
 | 介面 | `src/ui/*.js`、`index.html`、`styles.css` | 首頁、地圖選擇、對局、暫停、結算；滑鼠＋鍵盤 |
-| 音訊 | `src/audio/*.js` | Web Audio 音序器（20 首地圖曲＋首頁／地圖選擇共用選單曲）、事件音效、首頁與地圖選擇的按鈕點擊音效、獨立靜音、暫停續播；瀏覽器擋自動播放時於首頁提示 |
+| 音訊 | `src/audio/*.js` | Web Audio 音序器（20 首地圖曲＋首頁／地圖選擇共用選單曲）、事件音效、首頁與地圖選擇的按鈕點擊音效、音樂與音效各自的靜音與音量滑桿（首頁、地圖選擇、對局；設定存於 localStorage `sb-audio`）、暫停續播；瀏覽器擋自動播放時於首頁提示 |
 | 分享卡 | `src/ui/sharecard.js` | 1200×675 PNG 繪製與下載 |
 | 工具 | `tools/*.mjs` | 波次產生、文件產生、圖標產生、靜態伺服器、平衡模擬 |
 | PWA | `sw.js`、`manifest.webmanifest`、`src/pwa.js`、`icons/` | 離線快取、安裝、圖標、OG 分享圖；正式網址 https://starward-bastion.yustellar.dev（`CNAME`） |

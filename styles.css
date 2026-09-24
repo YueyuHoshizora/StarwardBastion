@@ -34,6 +34,12 @@ button.primary { background: #1d5e8a; border-color: #3fa7e0; font-weight: 700; }
 button.ghost { background: transparent; }
 button.big { font-size: 20px; padding: 12px 36px; }
 button.toggle[aria-pressed='false'] { text-decoration: line-through; opacity: 0.6; }
+/* 音量：靜音按鈕＋滑桿 */
+.vol { display: inline-flex; align-items: center; gap: 6px; }
+.vol input[type='range'] { width: 96px; margin: 0; accent-color: #8fdcff; cursor: pointer; }
+.vol input[type='range'].muted { opacity: 0.4; }
+.tb-audio .vol input[type='range'] { width: 64px; }
+.vol-row { margin-top: 14px; display: flex; gap: 22px; justify-content: center; }
 button.active { background: #2b7bb0; border-color: #8fdcff; font-weight: 700; }
 kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; background: var(--panel); }
 

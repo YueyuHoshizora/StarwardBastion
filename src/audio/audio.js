@@ -1,16 +1,21 @@
-// Web Audio 音訊引擎：20 首 8-bit 音序即時合成、事件音效、音樂／音效獨立靜音、暫停續播（R11、R13）。
+// Web Audio 音訊引擎：20 首 8-bit 音序即時合成、事件音效、音樂／音效獨立靜音與音量、暫停續播（R11、R13）。
 // 音樂時鐘獨立於遊戲倍速：只以 AudioContext 實際時間排程，倍速不改變音高或播放速度。
 import { TRACK_BY_MAP, MENU_TRACK } from '../data/music.js';
 
 const LOOKAHEAD = 0.18; // 秒
 const TICK_MS = 25;
 const mtof = (m) => 440 * 2 ** ((m - 69) / 12);
+// 音量 100% 時的匯流排增益（混音基準）；滑桿值 0–1 依此縮放。
+const MUSIC_BASE = 0.5;
+const SFX_BASE = 0.6;
 
 export class AudioEngine {
   constructor() {
     this.ctx = null;
     this.musicOn = true;
     this.sfxOn = true;
+    this.musicVol = 1; // 0–1
+    this.sfxVol = 1;
     this.track = null;
     this.playing = false;
     this.step = 0; // 下一個要排程的 16 分音符步
@@ -35,10 +40,10 @@ export class AudioEngine {
       this.master.threshold.value = -12;
       this.master.connect(this.ctx.destination);
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.musicOn ? 0.5 : 0;
+      this.musicGain.gain.value = this.musicLevel;
       this.musicGain.connect(this.master);
       this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.value = this.sfxOn ? 0.6 : 0;
+      this.sfxGain.gain.value = this.sfxLevel;
       this.sfxGain.connect(this.master);
       this.noise = this.makeNoise();
     }
@@ -54,14 +59,38 @@ export class AudioEngine {
     return this.ctx?.state === 'running';
   }
 
+  get musicLevel() {
+    return this.musicOn ? MUSIC_BASE * this.musicVol : 0;
+  }
+
+  get sfxLevel() {
+    return this.sfxOn ? SFX_BASE * this.sfxVol : 0;
+  }
+
   setMusic(on) {
     this.musicOn = on;
-    if (this.ctx) this.musicGain.gain.setTargetAtTime(on ? 0.5 : 0, this.ctx.currentTime, 0.02);
+    this.applyGain(this.musicGain, this.musicLevel);
   }
 
   setSfx(on) {
     this.sfxOn = on;
-    if (this.ctx) this.sfxGain.gain.setTargetAtTime(on ? 0.6 : 0, this.ctx.currentTime, 0.02);
+    this.applyGain(this.sfxGain, this.sfxLevel);
+  }
+
+  /** 音樂音量 0–1（不改變靜音狀態）。 */
+  setMusicVolume(v) {
+    this.musicVol = Math.min(1, Math.max(0, v));
+    this.applyGain(this.musicGain, this.musicLevel);
+  }
+
+  /** 音效音量 0–1（不改變靜音狀態）。 */
+  setSfxVolume(v) {
+    this.sfxVol = Math.min(1, Math.max(0, v));
+    this.applyGain(this.sfxGain, this.sfxLevel);
+  }
+
+  applyGain(node, level) {
+    if (this.ctx) node.gain.setTargetAtTime(level, this.ctx.currentTime, 0.02);
   }
 
   // ---------- 音樂 ----------
