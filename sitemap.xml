@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://starward-bastion.yustellar.dev/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://starward-bastion.yustellar.dev/?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://starward-bastion.yustellar.dev/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://starward-bastion.yustellar.dev/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://starward-bastion.yustellar.dev/?lang=ko"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://starward-bastion.yustellar.dev/"/>
+  </url>
+  <url>
+    <loc>https://starward-bastion.yustellar.dev/?lang=zh</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://starward-bastion.yustellar.dev/?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://starward-bastion.yustellar.dev/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://starward-bastion.yustellar.dev/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://starward-bastion.yustellar.dev/?lang=ko"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://starward-bastion.yustellar.dev/"/>
+  </url>
+  <url>
+    <loc>https://starward-bastion.yustellar.dev/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://starward-bastion.yustellar.dev/?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://starward-bastion.yustellar.dev/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://starward-bastion.yustellar.dev/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://starward-bastion.yustellar.dev/?lang=ko"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://starward-bastion.yustellar.dev/"/>
+  </url>
+  <url>
+    <loc>https://starward-bastion.yustellar.dev/?lang=ja</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://starward-bastion.yustellar.dev/?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://starward-bastion.yustellar.dev/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://starward-bastion.yustellar.dev/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://starward-bastion.yustellar.dev/?lang=ko"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://starward-bastion.yustellar.dev/"/>
+  </url>
+  <url>
+    <loc>https://starward-bastion.yustellar.dev/?lang=ko</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://starward-bastion.yustellar.dev/?lang=zh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://starward-bastion.yustellar.dev/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://starward-bastion.yustellar.dev/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://starward-bastion.yustellar.dev/?lang=ko"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://starward-bastion.yustellar.dev/"/>
+  </url>
+</urlset>

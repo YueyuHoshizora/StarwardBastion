@@ -1,6 +1,6 @@
 // Service Worker：預先快取全部遊戲檔案，支援離線遊玩（PWA）。
 // VERSION 與 PRECACHE 由 npm run assets:hash 產生；JS/CSS 查詢參數不可忽略。
-const VERSION = 'sb-8d593be99631125e';
+const VERSION = 'sb-43c7836fe72ce2c1';
 const PRECACHE = [
   './',
   'index.html',
@@ -12,7 +12,7 @@ const PRECACHE = [
   'icons/icon-maskable-192.png',
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
-  'styles.css?e5670946352e6115',
+  'styles.css?d4d406e6e08620a0',
   'src/audio/audio.js?8af86df7ebdca122',
   'src/boot.js?17bcade6968f5340',
   'src/core/game.js?eb0e2f6ac6977042',
@@ -24,12 +24,16 @@ const PRECACHE = [
   'src/data/music.js?4f037bad87845156',
   'src/data/towers.js?9f11305978ef032f',
   'src/data/waves.js?cab60c4a7a6d3e19',
-  'src/main.js?753a0b6972c4c2cb',
-  'src/pwa.js?3ca191bc0b2fed9b',
-  'src/render/scene.js?dd99343cf330a23c',
+  'src/i18n/canvas.js?2262802da3b3c0d5',
+  'src/i18n/data.js?1053a0ca29fcf141',
+  'src/i18n/index.js?f1562a87643b9868',
+  'src/i18n/ui.js?a896e84a8a56fe73',
+  'src/main.js?b3194363b8efe880',
+  'src/pwa.js?75ce8c987a912743',
+  'src/render/scene.js?5943e080a7e2de49',
   'src/render/sprites.js?79442e4afc58ad74',
-  'src/ui/app.js?0326b54bad4dd417',
-  'src/ui/sharecard.js?2fce8658a64b4668',
+  'src/ui/app.js?fb6e36d6451bed68',
+  'src/ui/sharecard.js?732c28e160a37f07',
 ];
 
 self.addEventListener('install', (event) => {

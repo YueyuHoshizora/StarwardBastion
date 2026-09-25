@@ -3,6 +3,7 @@
 import { GRID_W, GRID_H, featureCells, cellAt } from '../core/mapgeom.js';
 import { TOWER_BY_ID } from '../data/towers.js';
 import { drawTower, drawEnemy, TOWER_COLOR, ENEMY_SCALE } from './sprites.js';
+import { t } from '../i18n/index.js';
 
 const TAU = Math.PI * 2;
 
@@ -352,6 +353,11 @@ export class Scene {
   setGame(game) {
     this.game = game;
     this.effects = [];
+    this.renderStatic();
+  }
+
+  /** 語系變更時重繪靜態畫布快取，不觸碰模擬狀態或特效。 */
+  refreshLanguage() {
     this.renderStatic();
   }
 
@@ -902,12 +908,12 @@ export class Scene {
       ctx.lineWidth = 0.06;
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#d7c8ff';
+      const formatRange = (value) => Number(value.toFixed(2)).toString();
       ctx.font = 'bold 0.3px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('偵測 6.0', cx, cy - def.detectRadius - 0.12);
+      ctx.fillText(t('scene.rangeDetect', { range: formatRange(def.detectRadius) }), cx, cy - def.detectRadius - 0.12, def.detectRadius * 2 - 0.2);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('攻擊 3.0', cx, cy - def.range - 0.12);
+      ctx.fillText(t('scene.rangeAttack', { range: formatRange(def.range) }), cx, cy - def.range - 0.12, def.range * 2 - 0.2);
     }
     ctx.restore();
   }

@@ -1,12 +1,13 @@
 // 介面控制：畫面切換、對局迴圈、滑鼠與鍵盤操作、HUD、提示面板、結算與分享卡。
 import { MAPS, MAP_BY_ID } from '../data/maps.js';
-import { TOWERS, TOWER_BY_ID, TOWER_LEVELS, MAX_LEVEL, TARGET_LABEL } from '../data/towers.js';
+import { TOWERS, TOWER_BY_ID, TOWER_LEVELS, MAX_LEVEL } from '../data/towers.js';
 import { WAVES_PER_MAP } from '../data/difficulty.js';
 import { Game, SimClock } from '../core/game.js';
 import { Scene, drawMapStatic, placementCell } from '../render/scene.js';
 import { drawTower } from '../render/sprites.js';
 import { GRID_W, GRID_H } from '../core/mapgeom.js';
 import { AudioEngine } from '../audio/audio.js';
+import { t as tr, onLangChange } from '../i18n/index.js';
 import { drawCard, downloadCard, STAT_ROWS } from './sharecard.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -18,25 +19,27 @@ const AUDIO_PREFS = 'sb-audio'; // localStorage：{ musicOn, sfxOn, music, sfx }
 const fmtRange = (r) => r.toFixed(2).replace(/0$/, '');
 
 function towerDetails(t) {
-  const range = t.detectRadius ? `攻擊 ${fmtRange(t.range)} 格／偵測 ${t.detectRadius.toFixed(1)} 格` : `${fmtRange(t.range)} 格`;
+  const range = t.detectRadius
+    ? tr('ui.attackRange', { range: fmtRange(t.range), detect: t.detectRadius.toFixed(1) })
+    : tr('ui.rangeValue', { range: fmtRange(t.range) });
   return [
-    ['造價', `${t.cost} CR`],
-    ['目標', TARGET_LABEL[t.target] + (t.detectRadius ? '（偵測：空地）' : '')],
-    ['射程', range],
-    ['傷害', `${t.damage}／${t.interval} 秒${t.drones ? `（每機，${t.drones} 架）` : ''}`],
-    ['效果', t.effect],
-    ['外觀', t.silhouette],
+    [tr('ui.cost'), `${t.cost} CR`],
+    [tr('ui.target'), `${tr(`target.${t.target}`)}${t.detectRadius ? tr('ui.detectAir') : ''}`],
+    [tr('ui.range'), range],
+    [tr('ui.damage'), t.drones ? tr('ui.droneDamageRate', { damage: t.damage, interval: t.interval, drones: t.drones }) : tr('ui.damageRate', { damage: t.damage, interval: t.interval })],
+    [tr('ui.effect'), tr(`tower.${t.id}.effect`)],
+    [tr('ui.appearance'), tr(`tower.${t.id}.silhouette`)],
   ];
 }
 
 /** 已建造塔的資訊列：造價改為等級與已投入；外觀列（場上可見）改為下一級的傷害與射程預覽。 */
 function builtDetails(tw) {
   const rows = towerDetails(tw.def);
-  rows[0] = ['等級', `Lv${tw.level} / Lv${MAX_LEVEL}（已投入 ${tw.invested} CR）`];
+  rows[0] = [tr('ui.level'), tr('ui.invested', { level: tw.level, max: MAX_LEVEL, amount: tw.invested })];
   rows.pop();
   if (tw.level < MAX_LEVEL) {
     const next = TOWER_LEVELS[tw.id][tw.level];
-    rows.push(['下一級', `傷害 ${tw.def.damage}→${next.damage}、射程 ${fmtRange(tw.def.range)}→${fmtRange(next.range)} 格`]);
+    rows.push([tr('ui.nextLevel'), tr('ui.nextStats', { damage: tw.def.damage, nextDamage: next.damage, range: fmtRange(tw.def.range), nextRange: fmtRange(next.range) })]);
   }
   return rows;
 }
@@ -58,6 +61,7 @@ export class App {
     this.last = 0;
     this.buildTowerMenu();
     this.buildMapGrid();
+    this.langUnsubscribe = onLangChange(() => this.refreshLanguage());
     this.bind();
     this.loadAudioPrefs();
     this.syncAudioButtons();
@@ -73,9 +77,41 @@ export class App {
     return $('#screen-title').classList.contains('active') || $('#screen-select').classList.contains('active');
   }
 
-  /** 首頁提示：音訊尚未能發聲（瀏覽器等待使用者操作）時顯示。 */
   syncAudioHint() {
     $('#audio-hint').hidden = this.audio.running;
+  }
+
+  refreshLanguage() {
+    for (const b of document.querySelectorAll('.tower-btn')) {
+      const tower = TOWER_BY_ID[b.dataset.tower];
+      b.setAttribute('aria-label', `${tower.id} ${tr(`tower.${tower.id}.name`)} ${tower.cost} CR`);
+      b.querySelector('.tgt').textContent = tr(`targetShort.${tower.target}`);
+    }
+    for (const b of document.querySelectorAll('.map-card')) {
+      const map = MAP_BY_ID[b.dataset.map];
+      b.querySelector('.mc-name b').textContent = `${map.id} ${tr(`map.${map.id}.name`)}`;
+      b.querySelector('.stars').setAttribute('aria-label', tr('ui.stars', { count: map.star }));
+    }
+    this.syncAudioButtons();
+    this.renderInfo();
+    if (this.game) {
+      const map = MAP_BY_ID[this.game.mapId];
+      $('#hud-map').textContent = `${map.id} ${tr(`map.${map.id}.name`)}`;
+      $('#hud-star').setAttribute('aria-label', tr('ui.stars', { count: map.star }));
+      this.updateHud();
+      this.scene.refreshLanguage();
+    }
+    if (this.resultSnapshot) {
+      this.renderResult();
+      drawCard($('#card-preview'), this.resultSnapshot, this.resultGame);
+      const error = $('#result-error');
+      if (!error.hidden && this.downloadError) {
+        error.textContent = tr('ui.downloadError', {
+          message: this.downloadError.code === 'PNG_ENCODING' ? tr('card.error.png') : this.downloadError.message,
+        });
+      }
+    }
+    this.hideTooltip();
   }
 
   show(id) {
@@ -96,8 +132,8 @@ export class App {
       b.className = 'tower-btn';
       b.dataset.tower = t.id;
       b.setAttribute('role', 'option');
-      b.setAttribute('aria-label', `${t.id} ${t.name} ${t.cost} CR`);
-      b.innerHTML = `<span class="key">${TOWER_KEY[t.id]}</span><span class="tgt">${{ ground: '地', air: '空', both: '空地' }[t.target]}</span><canvas width="96" height="96"></canvas><span class="cost">${t.cost}</span>`;
+      b.setAttribute('aria-label', `${t.id} ${tr(`tower.${t.id}.name`)} ${t.cost} CR`);
+      b.innerHTML = `<span class="key">${TOWER_KEY[t.id]}</span><span class="tgt">${tr(`targetShort.${t.target}`)}</span><canvas width="96" height="96"></canvas><span class="cost">${t.cost}</span>`;
       const ctx = b.querySelector('canvas').getContext('2d');
       ctx.setTransform(46, 0, 0, 46, 48, 48);
       drawTower(ctx, t.id, -Math.PI / 2, 0, true);
@@ -111,7 +147,7 @@ export class App {
   }
 
   towerTooltip(t) {
-    return `<h4>${t.id} ${t.name}</h4>${dl(towerDetails(t).slice(0, 5))}`;
+    return `<h4>${t.id} ${tr(`tower.${t.id}.name`)}</h4>${dl(towerDetails(t).slice(0, 5))}`;
   }
 
   buildMapGrid() {
@@ -120,11 +156,12 @@ export class App {
       const b = document.createElement('button');
       b.className = 'map-card';
       b.dataset.map = m.id;
-      b.innerHTML = `<canvas width="560" height="320"></canvas><span class="mc-name"><b>${m.id} ${m.name}</b><span class="stars" aria-label="${m.star} 星">${stars(m.star)}</span></span>`;
+      b.innerHTML = `<canvas width="560" height="320"></canvas><span class="mc-name"><b>${m.id} ${tr(`map.${m.id}.name`)}</b><span class="stars" aria-label="${tr('ui.stars', { count: m.star })}">${stars(m.star)}</span></span>`;
+      const tooltip = () => `<h4>${m.id} ${tr(`map.${m.id}.name`)}</h4><p style="margin:0">${tr(`map.${m.id}.theme`)}</p>`;
       b.addEventListener('click', () => this.startMap(m.id));
-      b.addEventListener('mouseenter', () => this.showTooltip(b, `<h4>${m.id} ${m.name}</h4><p style="margin:0">${m.theme}</p>`));
+      b.addEventListener('mouseenter', () => this.showTooltip(b, tooltip()));
       b.addEventListener('mouseleave', () => this.hideTooltip());
-      b.addEventListener('focus', () => this.showTooltip(b, `<h4>${m.id} ${m.name}</h4><p style="margin:0">${m.theme}</p>`));
+      b.addEventListener('focus', () => this.showTooltip(b, tooltip()));
       b.addEventListener('blur', () => this.hideTooltip());
       grid.appendChild(b);
     }
@@ -215,15 +252,16 @@ export class App {
     this.selected = null;
     this.moving = null;
     this.hoverEnemy = null;
+    this.resultSnapshot = null;
     $('#result').hidden = true;
     $('#result-error').hidden = true;
     this.show('screen-game');
     this.scene.setGame(this.game);
     this.layout();
     const m = MAP_BY_ID[mapId];
-    $('#hud-map').textContent = `${m.id} ${m.name}`;
+    $('#hud-map').textContent = `${m.id} ${tr(`map.${m.id}.name`)}`;
     $('#hud-star').textContent = stars(m.star);
-    $('#hud-star').setAttribute('aria-label', `${m.star} 星`);
+    $('#hud-star').setAttribute('aria-label', tr('ui.stars', { count: m.star }));
     this.audio.playTrack(mapId);
     this.renderInfo();
     this.updateHud();
@@ -231,6 +269,10 @@ export class App {
 
   backToMaps() {
     this.game = null;
+    this.placing = null;
+    this.selected = null;
+    this.moving = null;
+    this.resultSnapshot = null;
     $('#result').hidden = true;
     this.show('screen-select');
   }
@@ -300,19 +342,19 @@ export class App {
   syncAudioButtons() {
     const a = this.audio;
     const state = {
-      music: { on: a.musicOn, vol: a.musicVol, name: '音樂', key: 'M' },
-      sfx: { on: a.sfxOn, vol: a.sfxVol, name: '音效', key: 'N' },
+      music: { on: a.musicOn, vol: a.musicVol, name: tr('ui.music'), key: 'M' },
+      sfx: { on: a.sfxOn, vol: a.sfxVol, name: tr('ui.sfx'), key: 'N' },
     };
     for (const b of document.querySelectorAll('[data-audio]')) {
       const s = state[b.dataset.audio];
       b.setAttribute('aria-pressed', String(s.on));
-      b.title = `${s.name}：${s.on ? '開' : '關'}（${s.key} 切換）`;
+      b.title = tr('ui.audioToggleTitle', { name: s.name, state: tr(s.on ? 'ui.audioOn' : 'ui.audioOff'), key: s.key });
     }
     for (const r of document.querySelectorAll('[data-vol]')) {
       const s = state[r.dataset.vol];
       const pct = Math.round(s.vol * 100);
       if (document.activeElement !== r) r.value = String(pct);
-      r.title = `${s.name}音量 ${pct}%`;
+      r.title = tr('ui.audioVolumeTitle', { name: s.name, percent: pct });
       r.classList.toggle('muted', !s.on);
     }
     try {
@@ -334,7 +376,6 @@ export class App {
     if (!this.game) return;
     const [wx, wy] = this.scene.toWorld(e.clientX, e.clientY);
     this.hover = [wx, wy];
-    // 游標指向的已顯形敵人（UI4）；未顯形隱形敵人不可被指向
     let best = null;
     let bd = 0.55 ** 2;
     for (const en of this.game.enemies) {
@@ -346,20 +387,20 @@ export class App {
       }
     }
     this.hoverEnemy = best;
-    // 入口指向時高亮完整路線（M12 等多路線地圖）
     this.hoverRoute = null;
     for (const r of this.game.map.routes) {
       const [x, y] = r.cells[0];
       if (Math.hypot(x + 0.5 - wx, y + 0.5 - wy) < 0.8) this.hoverRoute = r.id;
     }
     if (best) {
-      const rows = [['生命', `${Math.ceil(best.hp)} / ${best.maxHp}`]];
-      if (best.maxShield) rows.push(['護盾', `${Math.ceil(best.shield)} / ${best.maxShield}`]);
-      rows.push(['類型', `${best.def.type}${best.isChild ? '（分裂子體）' : ''}`], ['移速', `${best.baseSpeed} 格／秒`], ['獎勵', best.isChild ? '0 CR（子體）' : `${best.def.reward} CR`]);
-      this.showTooltipAt(e.clientX, e.clientY, `<h4>${best.id} ${best.def.name}</h4>${dl(rows)}`);
+      const rows = [[tr('ui.hp'), `${Math.ceil(best.hp)} / ${best.maxHp}`]];
+      if (best.maxShield) rows.push([tr('ui.shield'), `${Math.ceil(best.shield)} / ${best.maxShield}`]);
+      const type = tr(`enemy.${best.def.id}.type`);
+      rows.push([tr('ui.type'), best.isChild ? tr('ui.childType', { type }) : type], [tr('ui.enemySpeed'), tr('ui.speedRate', { speed: best.baseSpeed })], [tr('ui.reward'), best.isChild ? tr('ui.childReward') : `${best.def.reward} CR`]);
+      this.showTooltipAt(e.clientX, e.clientY, `<h4>${best.id} ${tr(`enemy.${best.def.id}.name`)}</h4>${dl(rows)}`);
     } else if (this.hoverRoute) {
       const r = this.game.map.routes.find((x) => x.id === this.hoverRoute);
-      this.showTooltipAt(e.clientX, e.clientY, `<h4>路線 ${r.id}</h4><p style="margin:0">${r.layer === 'air' ? '空中航道（虛線）' : '地面路線（實心路面）'}：已高亮完整行進路徑</p>`);
+      this.showTooltipAt(e.clientX, e.clientY, `<h4>${tr('ui.route', { id: r.id })}</h4><p style="margin:0">${r.layer === 'air' ? tr('ui.airRoute') : tr('ui.groundRoute')}: ${tr('ui.routeHighlight')}</p>`);
     } else {
       this.hideTooltip();
     }
@@ -376,7 +417,7 @@ export class App {
         this.renderInfo();
       } else {
         this.audio.sfx('deny');
-        this.flash(r.reason === 'funds' ? '資源不足' : r.reason === 'ended' ? '對局已結束' : '無法移到此處');
+        this.flash(r.reason === 'funds' ? 'ui.errFunds' : r.reason === 'ended' ? 'ui.errEnded' : 'ui.errMove');
       }
       this.updateHud();
       return;
@@ -386,15 +427,15 @@ export class App {
       const r = this.game.build(this.placing, tx, ty);
       if (!r.ok) {
         this.audio.sfx('deny');
-        this.flash(r.reason === 'funds' ? '資源不足' : r.reason === 'ended' ? '對局已結束' : '此處不可建塔');
+        this.flash(r.reason === 'funds' ? 'ui.errFunds' : r.reason === 'ended' ? 'ui.errEnded' : 'ui.errBuild');
       } else if (!e.shiftKey && this.game.cr < TOWER_BY_ID[this.placing].cost) {
         this.selectTower(null);
       }
       this.updateHud();
       return;
     }
-    const tw = this.game.towers.find((t) => wx >= t.x && wx < t.x + 2 && wy >= t.y && wy < t.y + 2);
-    this.selected = tw ?? null;
+    const tower = this.game.towers.find((t) => wx >= t.x && wx < t.x + 2 && wy >= t.y && wy < t.y + 2);
+    this.selected = tower ?? null;
     this.renderInfo();
   }
 
@@ -404,7 +445,7 @@ export class App {
     const r = this.game.upgrade(this.selected);
     if (!r.ok) {
       this.audio.sfx('deny');
-      this.flash(r.reason === 'funds' ? '資源不足' : r.reason === 'max' ? '已達最高等級' : '對局已結束');
+      this.flash(r.reason === 'funds' ? 'ui.errFunds' : r.reason === 'max' ? 'ui.errMax' : 'ui.errEnded');
     }
     this.renderInfo();
     this.updateHud();
@@ -423,10 +464,10 @@ export class App {
     const r = this.game.sell(this.selected);
     if (!r.ok) {
       this.audio.sfx('deny');
-      this.flash('對局已結束');
+      this.flash('ui.errEnded');
       return;
     }
-    this.flash(`已出售，退還 ${r.refund} CR`);
+    this.flash('ui.sold', { refund: r.refund });
     this.selected = null;
     this.moving = null;
     this.renderInfo();
@@ -435,7 +476,9 @@ export class App {
 
   onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.matches?.('input, textarea, select, [contenteditable="true"]')) return;
     const k = e.key;
+    if (e.target.closest?.('[data-lang]') && (k === ' ' || k === 'Enter')) return;
     if (k === 'm' || k === 'M') return this.setMusic(!this.audio.musicOn);
     if (k === 'n' || k === 'N') return this.setSfx(!this.audio.sfxOn);
     if (!$('#screen-game').classList.contains('active') || !this.game) return;
@@ -463,23 +506,30 @@ export class App {
     }
   }
 
-  flash(msg) {
+  flash(key, params = {}) {
+    this.flashMessage = [key, params];
     const b = $('#banner');
-    b.textContent = msg;
+    b.textContent = tr(key, params);
     b.hidden = false;
     clearTimeout(this.flashTimer);
-    this.flashTimer = setTimeout(() => this.updateBanner(), 1200);
+    this.flashTimer = setTimeout(() => {
+      this.flashMessage = null;
+      this.updateBanner();
+    }, 1200);
   }
 
   updateBanner() {
     const b = $('#banner');
     if (this.game && this.clock.paused && !this.game.result) {
-      b.textContent = '⏸ 已暫停 — 仍可建塔；按 P 或速度按鈕繼續';
+      b.textContent = tr('ui.pausedStatus');
       b.hidden = false;
+    } else if (this.flashMessage) {
+      b.textContent = tr(this.flashMessage[0], this.flashMessage[1]);
     } else {
       b.hidden = true;
     }
   }
+
 
   // ---------- 提示面板（限制於視口內，UI9） ----------
 
@@ -522,26 +572,25 @@ export class App {
 
   renderInfo() {
     const info = $('#info');
-    const t = this.placing ? TOWER_BY_ID[this.placing] : this.selected?.def;
-    if (t && this.placing) {
-      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">選取中</span></h3>${dl(towerDetails(t))}` +
-        '<p class="hint">左鍵放置（2×2 格）・Shift＋左鍵連續放置・Esc／右鍵取消</p>';
-    } else if (t && this.moving) {
-      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">移動中・Lv${this.moving.level}</span></h3>${dl(builtDetails(this.moving))}` +
-        `<p class="hint">左鍵選擇新位置（移動費 ${this.game.relocateCost(this.moving)} CR；保留等級，移動後立即可攻擊）・V／Esc／右鍵取消</p>`;
-    } else if (t) {
+    const tower = this.placing ? TOWER_BY_ID[this.placing] : this.selected?.def;
+    if (tower && this.placing) {
+      info.innerHTML = `<h3><span>${tower.id} ${tr(`tower.${tower.id}.name`)}</span><span class="lbl">${tr('ui.selected')}</span></h3>${dl(towerDetails(tower))}` +
+        `<p class="hint">${tr('ui.placeHint')}</p>`;
+    } else if (tower && this.moving) {
+      info.innerHTML = `<h3><span>${tower.id} ${tr(`tower.${tower.id}.name`)}</span><span class="lbl">${tr('ui.movingLevel', { level: this.moving.level })}</span></h3>${dl(builtDetails(this.moving))}` +
+        `<p class="hint">${tr('ui.moveHint', { cost: this.game.relocateCost(this.moving) })}</p>`;
+    } else if (tower) {
       const tw = this.selected;
       const cost = tw.def.upgradeCost;
-      info.innerHTML = `<h3><span>${t.id} ${t.name}</span><span class="lbl">已建造・Lv${tw.level}</span></h3>${dl(builtDetails(tw))}` +
-        (cost == null ? '<p class="hint">已達最高等級</p>'
-          : `<button id="btn-upgrade" class="upgrade-btn" type="button">升級至 Lv${tw.level + 1}（${cost} CR）<kbd>U</kbd></button>`) +
-        `<div class="tower-actions"><button id="btn-move" class="upgrade-btn" type="button">移動 ${this.game.relocateCost(tw)} CR<kbd>V</kbd></button>` +
-        `<button id="btn-sell" class="upgrade-btn" type="button">出售 +${this.game.sellRefund(tw)} CR<kbd>S</kbd></button></div>`;
+      info.innerHTML = `<h3><span>${tower.id} ${tr(`tower.${tower.id}.name`)}</span><span class="lbl">${tr('ui.builtLevel', { level: tw.level })}</span></h3>${dl(builtDetails(tw))}` +
+        (cost == null ? `<p class="hint">${tr('ui.maxLevel')}</p>`
+          : `<button id="btn-upgrade" class="upgrade-btn" type="button">${tr('ui.upgrade', { level: tw.level + 1, cost })}<kbd>U</kbd></button>`) +
+        `<div class="tower-actions"><button id="btn-move" class="upgrade-btn" type="button">${tr('ui.move', { cost: this.game.relocateCost(tw) })}<kbd>V</kbd></button>` +
+        `<button id="btn-sell" class="upgrade-btn" type="button">${tr('ui.sell', { refund: this.game.sellRefund(tw) })}<kbd>S</kbd></button></div>`;
     } else {
-      info.innerHTML = '<h3>操作說明</h3><p class="hint">從上方選塔（或按 1–0、-、=），在可建塔格（方格底紋）上點擊放置；塔佔 2×2 格。</p>' +
-        '<p class="hint">實心路面＝地面路線；懸空虛線＋投影＝空中航道；◇＝地空共用段。指向入口可高亮整條路線。</p>' +
-        '<p class="hint">斜線＝邊陲荒地、紋路色塊＝主題地形，皆不可建塔。隱形敵人需 T05 偵測 6.0 格內才會顯形。</p>' +
-        '<p class="hint">Space 下一波・P 暫停・F 倍速・U 升級・V 移動・S 出售選取的塔・M 音樂・N 音效</p>';
+      info.innerHTML = `<h3>${tr('ui.instructions')}</h3><p class="hint">${tr('ui.instructionsBuild')}</p>` +
+        `<p class="hint">${tr('ui.instructionsRoutes')}</p><p class="hint">${tr('ui.instructionsTerrain')}</p>` +
+        `<p class="hint">${tr('ui.instructionsKeys')}</p>`;
     }
   }
 
@@ -551,7 +600,7 @@ export class App {
     $('#hud-wave').textContent = `${g.wave}/${WAVES_PER_MAP}`;
     $('#hud-hp').textContent = String(g.baseHp);
     $('#hud-cr').textContent = String(g.cr);
-    $('#hud-speed').textContent = this.clock.paused ? '暫停' : `${this.clock.speed}×`;
+    $('#hud-speed').textContent = this.clock.paused ? tr('ui.pause') : `${this.clock.speed}×`;
     for (const b of document.querySelectorAll('[data-speed]')) {
       const v = b.dataset.speed;
       const active = v === 'pause' ? this.clock.paused : !this.clock.paused && Number(v) === this.clock.speed;
@@ -560,7 +609,7 @@ export class App {
     }
     const btn = $('#btn-wave');
     btn.disabled = !g.canStartWave();
-    btn.textContent = g.wave === 0 ? '開始第 1 波' : g.wave >= WAVES_PER_MAP ? '最終波' : '開始下一波';
+    btn.textContent = g.wave === 0 ? tr('ui.waveStartFirst') : g.wave >= WAVES_PER_MAP ? tr('ui.waveFinal') : tr('ui.waveStartNext');
     for (const b of document.querySelectorAll('.tower-btn')) b.classList.toggle('poor', g.cr < TOWER_BY_ID[b.dataset.tower].cost);
     const up = $('#btn-upgrade');
     if (up && this.selected) up.disabled = g.cr < this.selected.def.upgradeCost || !!g.result;
@@ -625,22 +674,29 @@ export class App {
     this.hideTooltip();
     this.resultSnapshot = s;
     this.resultGame = this.game;
-    const win = s.result === 'WIN';
-    $('#result-title').textContent = win ? '✔ 勝利 VICTORY' : '✖ 失敗 DEFEAT';
-    $('#result-stats').innerHTML = STAT_ROWS(s).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    this.renderResult();
     drawCard($('#card-preview'), s, this.game);
     $('#result-error').hidden = true;
     $('#result').hidden = false;
     $('#btn-download').focus();
   }
 
+  renderResult() {
+    const s = this.resultSnapshot;
+    if (!s) return;
+    $('#result-title').textContent = s.result === 'WIN' ? tr('ui.victory') : tr('ui.defeat');
+    $('#result-stats').innerHTML = STAT_ROWS(s).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  }
+
   async download() {
     const err = $('#result-error');
     err.hidden = true;
+    this.downloadError = null;
     try {
       await downloadCard(this.resultSnapshot, this.resultGame);
     } catch (e) {
-      err.textContent = `下載失敗：${e.message}。戰果已保留，請再試一次。`;
+      this.downloadError = e;
+      err.textContent = tr('ui.downloadError', { message: e.message });
       err.hidden = false;
     }
   }

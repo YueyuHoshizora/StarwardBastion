@@ -1,7 +1,7 @@
 // 戰果分享卡（R12、UI10）：1200×675 PNG，只依凍結快照繪製，同一局重複下載內容一致。
-import { MAP_BY_ID } from '../data/maps.js';
 import { drawMapStatic } from '../render/scene.js';
 import { GRID_W, GRID_H } from '../core/mapgeom.js';
+import { t } from '../i18n/index.js';
 
 export const CARD_W = 1200;
 export const CARD_H = 675;
@@ -12,15 +12,15 @@ export function cardFilename(s) {
 }
 
 export const STAT_ROWS = (s) => [
-  ['地圖', `${s.mapId} ${s.mapName}`],
-  ['難度', `${'★'.repeat(s.star)}${'☆'.repeat(5 - s.star)}（${s.star} 星）`],
-  ['結果', s.result === 'WIN' ? '勝利' : '失敗'],
-  ['結束波次', `${s.wave} / 20`],
-  ['擊敗敵人', `${s.kills}`],
-  ['漏怪總數', `${s.leaks}`],
-  ['基地剩餘生命', `${s.baseHp} / 20`],
-  ['建塔總數', `${s.towersBuilt}`],
-  ['使用塔種數', `${s.towerTypes} / 12`],
+  [t('card.stat.map'), `${s.mapId} ${t(`map.${s.mapId}.name`)}`],
+  [t('card.stat.difficulty'), t('card.difficulty', { star: s.star })],
+  [t('card.stat.result'), s.result === 'WIN' ? t('card.victory') : t('card.defeat')],
+  [t('card.stat.wave'), `${s.wave} / 20`],
+  [t('card.stat.kills'), `${s.kills}`],
+  [t('card.stat.leaks'), `${s.leaks}`],
+  [t('card.stat.baseHp'), `${s.baseHp} / 20`],
+  [t('card.stat.towersBuilt'), `${s.towersBuilt}`],
+  [t('card.stat.towerTypes'), `${s.towerTypes} / 12`],
 ];
 
 function star(ctx, x, y, r, filled) {
@@ -60,10 +60,7 @@ export function drawCard(canvas, s, game) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#e6ecff';
   ctx.font = `800 54px ${FONT}`;
-  ctx.fillText('星域防線', 56, 96);
-  ctx.fillStyle = '#93a1c4';
-  ctx.font = `600 26px ${FONT}`;
-  ctx.fillText('STARWARD BASTION', 58, 134);
+  ctx.fillText(t('card.title'), 56, 96, 510);
 
   // 結果徽章：勝利＝勾、失敗＝叉（不只靠顏色）
   const bx = 56;
@@ -91,19 +88,14 @@ export function drawCard(canvas, s, game) {
   ctx.stroke();
   ctx.fillStyle = '#ffffff';
   ctx.font = `800 40px ${FONT}`;
-  ctx.fillText(win ? '勝利' : '失敗', bx + 100, by + 56);
-  ctx.font = `700 24px ${FONT}`;
-  ctx.fillStyle = '#c9d4f2';
-  ctx.fillText(win ? 'VICTORY' : 'DEFEAT', bx + 196, by + 54);
-
-  // 地圖與星級
+  ctx.fillText(win ? t('card.victory') : t('card.defeat'), bx + 100, by + 56, 230);
   ctx.fillStyle = '#e6ecff';
   ctx.font = `700 32px ${FONT}`;
-  ctx.fillText(`${s.mapId} ${s.mapName}`, 56, 300);
+  ctx.fillText(`${s.mapId} ${t(`map.${s.mapId}.name`)}`, 56, 300, 520);
   for (let i = 0; i < 5; i++) star(ctx, 72 + i * 36, 330, 14, i < s.star);
   ctx.fillStyle = '#93a1c4';
   ctx.font = `500 22px ${FONT}`;
-  ctx.fillText(`${s.star} 星難度`, 72 + 5 * 36, 338);
+  ctx.fillText(t('card.difficulty', { star: s.star }), 72 + 5 * 36, 338, 310);
 
   // 統計（R12 全部欄位）
   const rows = STAT_ROWS(s).slice(3);
@@ -117,10 +109,10 @@ export function drawCard(canvas, s, game) {
     ctx.fill();
     ctx.fillStyle = '#93a1c4';
     ctx.font = `500 19px ${FONT}`;
-    ctx.fillText(k, x + 16, y + 26);
+    ctx.fillText(k, x + 16, y + 26, 226);
     ctx.fillStyle = '#ffffff';
     ctx.font = `800 26px ${FONT}`;
-    ctx.fillText(v, x + 16, y + 56);
+    ctx.fillText(v, x + 16, y + 56, 226);
   });
 
   // 地圖縮圖
@@ -144,8 +136,8 @@ export function drawCard(canvas, s, game) {
 
   ctx.fillStyle = '#93a1c4';
   ctx.font = `500 20px ${FONT}`;
-  const theme = MAP_BY_ID[s.mapId].theme;
-  wrap(ctx, theme, mx, my + mh + 40, mw, 28);
+  const theme = t(`map.${s.mapId}.theme`);
+  wrap(ctx, theme, mx, my + mh + 40, mw, 28, 5);
 
   ctx.fillStyle = '#5f6d90';
   ctx.font = `500 18px ${FONT}`;
@@ -154,18 +146,29 @@ export function drawCard(canvas, s, game) {
   ctx.textAlign = 'left';
 }
 
-function wrap(ctx, text, x, y, maxW, lh) {
+function wrap(ctx, text, x, y, maxW, lh, maxLines) {
+  const words = text.includes(' ') ? text.split(/\s+/u) : [...text];
+  const lines = [];
   let line = '';
-  for (const ch of text) {
-    if (ctx.measureText(line + ch).width > maxW) {
-      ctx.fillText(line, x, y);
-      line = ch;
-      y += lh;
+  for (const word of words) {
+    const next = line ? `${line}${text.includes(' ') ? ' ' : ''}${word}` : word;
+    if (ctx.measureText(next).width > maxW && line) {
+      lines.push(line);
+      line = word;
     } else {
-      line += ch;
+      line = next;
     }
   }
-  if (line) ctx.fillText(line, x, y);
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    const fitted = lines.slice(0, maxLines);
+    let last = fitted[maxLines - 1];
+    while (last && ctx.measureText(`${last}…`).width > maxW) last = last.slice(0, -1);
+    fitted[maxLines - 1] = `${last}…`;
+    lines.length = 0;
+    lines.push(...fitted);
+  }
+  lines.forEach((value, i) => ctx.fillText(value, x, y + i * lh, maxW));
 }
 
 /** 以瀏覽器下載 API 在本機生成 PNG；失敗時丟出錯誤由呼叫端顯示，不清除戰果。 */
@@ -173,7 +176,7 @@ export async function downloadCard(s, game) {
   const canvas = document.createElement('canvas');
   drawCard(canvas, s, game);
   const blob = await new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('無法產生 PNG'))), 'image/png');
+    canvas.toBlob((b) => (b ? resolve(b) : reject(Object.assign(new Error(t('card.error.png')), { code: 'PNG_ENCODING' }))), 'image/png');
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
