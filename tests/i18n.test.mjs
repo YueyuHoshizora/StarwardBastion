@@ -4,19 +4,18 @@ import { resolveLang, MESSAGES, LOCALES } from '../src/i18n/index.js';
 
 const root = 'https://starward-bastion.yustellar.dev/';
 
-test('網址語系優先於瀏覽器偏好，其他參數與錨點不影響選擇', () => {
-  assert.equal(resolveLang(`${root}?from=share&lang=ko#game`, ['zh-TW', 'ja']), 'ko');
-  assert.equal(resolveLang(`${root}?lang=zh`, ['en-US']), 'zh');
+test('網址指定語系優先，其他參數與錨點不影響選擇', () => {
+  assert.equal(resolveLang(`${root}?from=share&lang=ko#game`), 'ko');
+  assert.equal(resolveLang(`${root}?lang=zh`), 'zh');
+  assert.equal(resolveLang(`${root}?lang=ja`), 'ja');
+  assert.equal(resolveLang(`${root}?lang=en`), 'en');
 });
 
-test('缺少或無效的語系參數依瀏覽器語言順序選擇，不支援時回退英文', () => {
-  assert.equal(resolveLang(root, ['zh-Hant-TW']), 'zh');
-  assert.equal(resolveLang(root, ['ja-JP', 'en-US']), 'ja');
-  assert.equal(resolveLang(root, ['fr-FR', 'ko-KR', 'en']), 'ko');
-  assert.equal(resolveLang(`${root}?lang=unknown`, ['en-GB', 'ja']), 'en');
-  assert.equal(resolveLang(`${root}?lang=`, ['ja-JP']), 'ja');
-  assert.equal(resolveLang(`${root}?lang=constructor`, ['fr-FR']), 'en');
-  assert.equal(resolveLang(root, []), 'en');
+test('未指定或指定無效語系時預設英文，不受瀏覽器語言影響', () => {
+  assert.equal(resolveLang(root), 'en');
+  assert.equal(resolveLang(`${root}?lang=unknown`), 'en');
+  assert.equal(resolveLang(`${root}?lang=`), 'en');
+  assert.equal(resolveLang(`${root}?lang=constructor`), 'en');
 });
 
 test('各語系提供相同翻譯與插值參數，切換語言不缺少必要資訊', () => {

@@ -44,15 +44,10 @@ let initialized = false;
 const listeners = new Set();
 const supported = (lang) => Object.hasOwn(LOCALES, lang);
 
-/** 明確的網址語系優先；沒有有效參數時，依瀏覽器偏好順序選擇支援語系。 */
-export function resolveLang(url, languages = []) {
+/** 明確的網址語系優先；沒有有效參數時預設英文。 */
+export function resolveLang(url) {
   const explicit = new URL(url).searchParams.get('lang');
-  if (supported(explicit)) return explicit;
-  for (const locale of languages) {
-    const code = locale.toLowerCase().split(/[-_]/)[0];
-    if (supported(code)) return code;
-  }
-  return 'en';
+  return supported(explicit) ? explicit : 'en';
 }
 
 export function getLang() { return language; }
@@ -126,10 +121,10 @@ export function setLang(next) {
 export function initI18n() {
   if (initialized) return;
   initialized = true;
-  language = resolveLang(window.location.href, navigator.languages);
+  language = resolveLang(window.location.href);
   renderDocument();
   for (const button of document.querySelectorAll('[data-lang]')) {
     button.addEventListener('click', () => setLang(button.dataset.lang));
   }
-  window.addEventListener('popstate', () => applyLanguage(resolveLang(window.location.href, navigator.languages)));
+  window.addEventListener('popstate', () => applyLanguage(resolveLang(window.location.href)));
 }

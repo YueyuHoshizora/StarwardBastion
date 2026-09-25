@@ -1,8 +1,8 @@
 {
-  "name": "星域防線 Starward Bastion",
-  "short_name": "星域防線",
-  "description": "未來科技俯視塔防：20 張地圖、12 種防禦塔、16 種敵人、20 首原創 8-bit 音樂。",
-  "lang": "zh-Hant",
+  "name": "Starward Bastion",
+  "short_name": "Starward Bastion",
+  "description": "Top-down sci-fi tower defense with 20 maps, 12 towers, 16 enemies and 20 original 8-bit tracks.",
+  "lang": "en",
   "id": "/",
   "start_url": "./",
   "scope": "./",
@@ -20,6 +20,6 @@
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "icons/og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "星域防線 Starward Bastion" }
+    { "src": "icons/og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "Starward Bastion" }
   ]
 }
